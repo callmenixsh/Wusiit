@@ -32,12 +32,6 @@ type QueueEditorProps = {
   onTemplateDraftApplied?: () => void
 }
 
-function toQueueOrder(split: AppState['split'], nextIndex: number) {
-  if (!split.length) return [] as AppState['split']
-  const idx = ((nextIndex % split.length) + split.length) % split.length
-  return [...split.slice(idx), ...split.slice(0, idx)]
-}
-
 function SortableQueueCard({
   item,
   index,
@@ -141,10 +135,9 @@ export default function QueueEditor({
     return `queue-${nextId.current}`
   }
 
-  const mapSplitToItems = (split: AppState['split'], nextIndex: number): SplitItem[] => {
-    const queue = toQueueOrder(split, nextIndex)
-    if (!queue.length) return [{ id: makeId(), name: '', description: '' }]
-    return queue.map((s) => ({ id: makeId(), name: s.name, description: s.description }))
+  const mapSplitToItems = (split: AppState['split']): SplitItem[] => {
+    if (!split.length) return [{ id: makeId(), name: '', description: '' }]
+    return split.map((s) => ({ id: makeId(), name: s.name, description: s.description }))
   }
 
   const mapListToItems = (list: {name:string,description?:string}[]): SplitItem[] => {
@@ -152,7 +145,7 @@ export default function QueueEditor({
     return list.map((s) => ({ id: makeId(), name: s.name, description: s.description }))
   }
 
-  const [items, setItems] = useState<SplitItem[]>(() => mapSplitToItems(state.split, state.nextIndex))
+  const [items, setItems] = useState<SplitItem[]>(() => mapSplitToItems(state.split))
 
   useEffect(() => {
     if(!templateDraftItems || templateDraftItems.length === 0) return
@@ -161,8 +154,8 @@ export default function QueueEditor({
   }, [templateDraftToken])
 
   const stateSignature = useMemo(
-    () => JSON.stringify(toQueueOrder(state.split, state.nextIndex).map((s) => ({ name: (s.name || '').trim(), description: (s.description || '').trim() }))),
-    [state.split, state.nextIndex]
+    () => JSON.stringify(state.split.map((s) => ({ name: (s.name || '').trim(), description: (s.description || '').trim() }))),
+    [state.split]
   )
 
   const draftSignature = useMemo(
@@ -219,7 +212,7 @@ export default function QueueEditor({
   }
 
   function handleCancel(){
-    setItems(mapSplitToItems(state.split, state.nextIndex))
+    setItems(mapSplitToItems(state.split))
   }
 
   return (

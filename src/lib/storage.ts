@@ -10,7 +10,6 @@ export type SplitItem = {
 
 export type AppState = {
   split: SplitItem[]
-  nextIndex: number
   history: DayEntry[]
 }
 
@@ -23,7 +22,6 @@ export const defaultState = (): AppState => ({
     {name: 'Pull'},
     {name: 'Legs'}
   ],
-  nextIndex: 0,
   history: []
 })
 
@@ -69,9 +67,6 @@ function normalizeState(parsed: unknown): AppState {
   }
   if (!split.length) split = defaultState().split
 
-  const nextIndexRaw = typeof raw.nextIndex === 'number' ? raw.nextIndex : 0
-  const nextIndex = Number.isFinite(nextIndexRaw) ? Math.max(0, Math.floor(nextIndexRaw)) : 0
-
   const seen = new Set<string>()
   const history = Array.isArray(raw.history)
     ? raw.history
@@ -86,7 +81,7 @@ function normalizeState(parsed: unknown): AppState {
         .slice(0, MAX_HISTORY_ENTRIES)
     : []
 
-  return { split, nextIndex, history }
+  return { split, history }
 }
 
 function compactState(state: AppState): AppState {
@@ -95,7 +90,6 @@ function compactState(state: AppState): AppState {
       name: item.name,
       ...(item.description ? { description: item.description } : {}),
     })),
-    nextIndex: state.nextIndex,
     history: state.history.map((item) => ({
       date: item.date,
       label: item.label,

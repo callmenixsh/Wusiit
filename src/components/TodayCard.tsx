@@ -15,11 +15,10 @@ export default function TodayCard({state, onMark, onDoTomorrow, actionState, act
   if(!state.split.length) {
     return <div className="bg-white dark:bg-black border border-black/20 dark:border-white/30 rounded-lg p-3">No split configured.</div>
   }
-  const idx = state.nextIndex % state.split.length
-  const splitItem = state.split[idx] ?? {name: 'Unconfigured'}
+  const splitItem = state.split[0] ?? {name: 'Unconfigured'}
   const label = splitItem.name
   const nextTwo = [1, 2].map((offset) => {
-    const nextIdx = (idx + offset) % state.split.length
+    const nextIdx = offset % state.split.length
     return {
       offset,
       name: state.split[nextIdx]?.name ?? `Workout ${nextIdx + 1}`,

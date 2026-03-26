@@ -1,11 +1,9 @@
 import { AppState, DayEntry } from './storage'
 
 export function addHistoryForCurrentDay(state: AppState, description?: string){
-  const len = Math.max(1, state.split.length)
-  const idx = state.nextIndex % len
-  const splitItem = state.split[idx]
+  const splitItem = state.split[0]
   const today = new Date().toISOString().slice(0, 10)
-  const normalizedLabel = splitItem?.name ?? `Workout ${idx+1}`
+  const normalizedLabel = splitItem?.name ?? 'Workout 1'
 
   // Idempotency guard: avoid duplicate entry writes for the same completed split.
   const latest = state.history[0]
@@ -26,9 +24,10 @@ export function addHistoryForCurrentDay(state: AppState, description?: string){
 }
 
 export function advanceToNextDay(state: AppState){
-  const len = Math.max(1, state.split.length)
-  const idx = state.nextIndex % len
-  state.nextIndex = (idx + 1) % len
+  if (state.split.length > 1) {
+    const first = state.split[0]
+    state.split = [...state.split.slice(1), first]
+  }
   return state
 }
 
@@ -40,6 +39,5 @@ export function markToday(state: AppState, description?: string){
 
 export function setSplit(state: AppState, newSplit: {name:string,description?:string}[]){
   state.split = newSplit.length ? newSplit : [{name:'Workout 1'}]
-  state.nextIndex = 0
   return state
 }

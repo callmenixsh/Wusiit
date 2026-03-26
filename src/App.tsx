@@ -158,11 +158,9 @@ export default function App(){
   function handleDoTomorrow(){
     if(state.split.length < 2) return
     const next = { ...state, split: [...state.split] }
-    const todayIndex = state.nextIndex % state.split.length
-    const tomorrowIndex = (todayIndex + 1) % state.split.length
-    const temp = next.split[todayIndex]
-    next.split[todayIndex] = next.split[tomorrowIndex]
-    next.split[tomorrowIndex] = temp
+    const temp = next.split[0]
+    next.split[0] = next.split[1]
+    next.split[1] = temp
     setState(next)
   }
 
