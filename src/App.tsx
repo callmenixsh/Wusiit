@@ -6,6 +6,7 @@ import History from './pages/History'
 import Settings from './pages/Settings'
 import { loadState, saveState, exportJSON, importJSON, AppState } from './lib/storage'
 import { addHistoryForCurrentDay, advanceToNextDay, setSplit } from './lib/queue'
+import { localDateString } from './lib/dates'
 
 const THEME_KEY = 'wusiit.theme'
 const WORKOUT_TIMER_END_KEY = 'wusiit.workout.timerEnd'
@@ -22,7 +23,7 @@ export default function App(){
     const raw = localStorage.getItem(WORKOUT_TIMER_END_KEY)
     return raw ? Number(raw) || 0 : 0
   })
-  const [workoutMinutes, setWorkoutMinutes] = useState<number>(()=>{
+  const [workoutMinutes, setWorkoutMinutes] = useState<number | null>(()=>{
     const minuteRaw = localStorage.getItem(WORKOUT_MINUTES_KEY)
     const hourRaw = localStorage.getItem(LEGACY_WORKOUT_HOURS_KEY)
     if(minuteRaw){
@@ -71,7 +72,8 @@ export default function App(){
   }, [workoutTimerEnd])
 
   useEffect(()=>{
-    localStorage.setItem(WORKOUT_MINUTES_KEY, String(workoutMinutes))
+    if(workoutMinutes === null) localStorage.removeItem(WORKOUT_MINUTES_KEY)
+    else localStorage.setItem(WORKOUT_MINUTES_KEY, String(workoutMinutes))
   }, [workoutMinutes])
 
   useEffect(()=>{
@@ -86,8 +88,8 @@ export default function App(){
 
   function handleStartWorkout(){
     if(workoutTimerEnd > 0) return
-    const today = new Date().toISOString().slice(0, 10)
-    const minutes = Number.isFinite(workoutMinutes) && workoutMinutes > 0 ? workoutMinutes : 60
+    const today = localDateString()
+    const minutes = workoutMinutes ?? 60
     setState(prev => {
       const next = { ...prev }
       addHistoryForCurrentDay(next)
@@ -109,11 +111,18 @@ export default function App(){
 
   function handleDoTomorrow(){
     if(state.split.length < 2) return
-    const next = { ...state, split: [...state.split] }
-    const temp = next.split[0]
-    next.split[0] = next.split[1]
-    next.split[1] = temp
-    setState(next)
+    setState(prev => {
+      const split = [...prev.split]
+      const first = split.shift()
+      if(first) split.push(first)
+      return { ...prev, split }
+    })
+  }
+
+  function handleEndWorkout(){
+    if(!(workoutTimerEnd > 0)) return
+    if(!confirm('End workout and reset the timer? Today\'s session stays in history.')) return
+    setWorkoutTimerEnd(0)
   }
 
   const isWorkoutInProgress = workoutTimerEnd > 0 && nowTs < workoutTimerEnd
@@ -129,10 +138,14 @@ export default function App(){
     : `Workout in progress (${minutesRemaining}m left)`
 
   function handleWorkoutMinutesChange(value: string){
-    const parsed = Number(value)
-    if(!Number.isFinite(parsed)) return
-    const clamped = Math.min(720, Math.max(1, Math.round(parsed)))
-    setWorkoutMinutes(clamped)
+    const trimmed = value.trim()
+    if(trimmed === ''){
+      setWorkoutMinutes(null)
+      return
+    }
+    const parsed = Number(trimmed)
+    if(!Number.isFinite(parsed) || parsed < 1) return
+    setWorkoutMinutes(Math.min(720, Math.round(parsed)))
   }
 
   function handleSaveSplit(items: {name:string,description?:string}[]){
@@ -203,6 +216,8 @@ export default function App(){
     if(!txt) return
     const parsed = importJSON(txt)
     if(!parsed) return alert('Invalid JSON')
+    const hasExistingData = state.history.length > 0 || state.split.some((s) => (s.name || '').trim())
+    if(hasExistingData && !confirm('Importing will replace all current data. Continue?')) return
     setState(parsed)
   }
 
@@ -265,6 +280,7 @@ export default function App(){
               onStartWorkout={handleStartWorkout}
               onDoTomorrow={handleDoTomorrow}
               onSwitchToNextDay={handleSwitchToNextDay}
+              onEndWorkout={handleEndWorkout}
               actionState={homeActionState}
               actionLabel={homeActionLabel}
               lastWorkoutDate={lastWorkoutDate}

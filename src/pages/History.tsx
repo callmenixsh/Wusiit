@@ -1,5 +1,6 @@
 import React from 'react'
 import type { AppState } from '../lib/storage'
+import { localDateString } from '../lib/dates'
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
@@ -32,7 +33,7 @@ function getStreakStats(state: AppState) {
   const getGapDays = (a: Date, b: Date) => Math.round((a.getTime() - b.getTime()) / DAY_MS)
   const ALLOWED_GAP_DAYS = 2 // one missing day is allowed
 
-  const todayIso = new Date().toISOString().slice(0, 10)
+  const todayIso = localDateString()
   const today = parseIsoDate(todayIso)
   const latest = sessionDates[0]
 
@@ -76,7 +77,7 @@ function getRecentWeek(state: AppState) {
   return Array.from({ length: 7 }, (_, i) => {
     const d = new Date(today)
     d.setDate(today.getDate() - (6 - i))
-    const iso = d.toISOString().slice(0, 10)
+    const iso = localDateString(d)
 
     return {
       iso,
@@ -107,8 +108,8 @@ function getDateRangeStats(state: AppState) {
   const daysSinceLast = Math.max(0, Math.floor((now.getTime() - last.getTime()) / DAY_MS))
 
   return {
-    firstDateLabel: formatDateLabel(first.toISOString().slice(0, 10)),
-    lastDateLabel: formatDateLabel(last.toISOString().slice(0, 10)),
+    firstDateLabel: formatDateLabel(localDateString(first)),
+    lastDateLabel: formatDateLabel(localDateString(last)),
     daysSinceLast,
   }
 }
@@ -118,7 +119,7 @@ export default function History({ state, lastWorkoutDate }: HistoryProps){
   const { currentStreak, highestStreak } = getStreakStats(state)
   const week = getRecentWeek(state)
   const { firstDateLabel, lastDateLabel, daysSinceLast } = getDateRangeStats(state)
-  const todayIso = new Date().toISOString().slice(0, 10)
+  const todayIso = localDateString()
   const todayStatus = lastWorkoutDate === todayIso ? 'Logged today' : 'Not logged today'
   const splitCounts = state.history.reduce<Record<string, number>>((acc, h) => {
     const key = h.label || 'Unknown'
@@ -206,6 +207,7 @@ export default function History({ state, lastWorkoutDate }: HistoryProps){
             <li key={i} className="py-2.5">
               <div className="font-medium text-black dark:text-white truncate">{h.label}</div>
               <div className="text-[11px] text-black/55 dark:text-white/55 mt-0.5">{formatDateLabel(h.date)}</div>
+              {h.description && <div className="text-xs whitespace-pre-line text-black/65 dark:text-white/65 mt-1">{h.description}</div>}
             </li>
           ))}
         </ul>

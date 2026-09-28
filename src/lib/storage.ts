@@ -1,6 +1,7 @@
 export type DayEntry = {
   date: string // ISO date
   label: string
+  description?: string
 }
 
 export type SplitItem = {
@@ -32,10 +33,12 @@ function normalizeHistoryEntry(entry: unknown): DayEntry | null {
   const date = typeof raw.date === 'string' ? raw.date.trim() : ''
   const label = typeof raw.label === 'string' ? raw.label.trim() : ''
   if (!date || !label) return null
+  const description = typeof raw.description === 'string' ? raw.description.trim() : ''
 
   return {
     date,
     label,
+    ...(description ? { description } : {}),
   }
 }
 
@@ -93,6 +96,7 @@ function compactState(state: AppState): AppState {
     history: state.history.map((item) => ({
       date: item.date,
       label: item.label,
+      ...(item.description ? { description: item.description } : {}),
     })),
   }
 }

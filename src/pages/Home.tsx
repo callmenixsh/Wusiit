@@ -7,6 +7,7 @@ type HomeProps = {
   onStartWorkout: () => void
   onDoTomorrow: () => void
   onSwitchToNextDay: () => void
+  onEndWorkout: () => void
   actionState: 'idle' | 'in-progress' | 'ready-next-day'
   actionLabel: string
   lastWorkoutDate: string
@@ -17,6 +18,7 @@ export default function Home({
   onStartWorkout,
   onDoTomorrow,
   onSwitchToNextDay,
+  onEndWorkout,
   actionState,
   actionLabel,
   lastWorkoutDate,
@@ -27,6 +29,7 @@ export default function Home({
       onMark={onStartWorkout}
       onDoTomorrow={onDoTomorrow}
       onSwitchToNextDay={onSwitchToNextDay}
+      onEndWorkout={onEndWorkout}
       actionState={actionState}
       actionLabel={actionLabel}
       lastWorkoutDate={lastWorkoutDate}

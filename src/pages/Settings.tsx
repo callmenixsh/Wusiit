@@ -4,7 +4,7 @@ import { Monitor, Moon, Sun } from 'lucide-react'
 type TemplateId = 'ppl' | '5day' | 'arnold'
 
 type SettingsProps = {
-  workoutMinutes: number
+  workoutMinutes: number | null
   onWorkoutMinutesChange: (value: string) => void
   onOpenTemplates: () => void
   onExportClipboard: () => void | Promise<void>
@@ -63,7 +63,7 @@ export default function Settings({
             min={1}
             max={720}
             step={1}
-            value={workoutMinutes}
+            value={workoutMinutes === null ? '' : workoutMinutes}
             onChange={(e) => onWorkoutMinutesChange(e.target.value)}
             className="mt-2 w-full rounded-lg border border-black/20 dark:border-white/30 bg-white dark:bg-black px-3 py-2.5 text-black dark:text-white focus:outline-none focus:ring-2 focus:ring-black/15 dark:focus:ring-white/25"
           />

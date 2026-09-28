@@ -1,9 +1,11 @@
 import { AppState, DayEntry } from './storage'
+import { localDateString } from './dates'
 
 export function addHistoryForCurrentDay(state: AppState){
   const splitItem = state.split[0]
-  const today = new Date().toISOString().slice(0, 10)
+  const today = localDateString()
   const normalizedLabel = splitItem?.name ?? 'Workout 1'
+  const description = splitItem?.description?.trim() || undefined
 
   // Idempotency guard: avoid duplicate entry writes for the same completed split.
   const latest = state.history[0]
@@ -17,7 +19,8 @@ export function addHistoryForCurrentDay(state: AppState){
 
   const entry: DayEntry = {
     date: today,
-    label: normalizedLabel
+    label: normalizedLabel,
+    ...(description ? { description } : {}),
   }
   state.history.unshift(entry)
   return state
