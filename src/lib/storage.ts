@@ -1,10 +1,12 @@
 export type Exercise = { id:string; name:string; instructions?:string; commonMistakes?:string; equipment?:string; sets?:number; reps?:string; tracking?:'reps'|'timed'; durationSeconds?:number; muscleGroupIds?:string[] }
 export type MuscleGroup = { id:string; name:string; exerciseIds:string[] }
 export type PlanDay = { id:string; name:string; exerciseIds:string[]; muscleGroupIds?:string[]; isRestDay?:boolean }
-export type DayEntry = { date:string; label:string; description?:string }
+export type WorkoutRating = 'challenging'|'balanced'|'easy'
+export type ExercisePerformance = { exerciseId:string; exerciseName:string; set:number; reps?:number; weight?:number; durationSeconds?:number }
+export type DayEntry = { id?:string; date:string; completedAt?:string; label:string; description?:string; durationSeconds?:number; rating?:WorkoutRating; performances?:ExercisePerformance[] }
 export type WeightEntry = { id:string; date:string; weight:number }
 export type WeightTracking = { enabled:boolean; entries:WeightEntry[] }
-export type AppState = { exercises:Exercise[]; muscleGroups:MuscleGroup[]; days:PlanDay[]; history:DayEntry[]; weightTracking:WeightTracking }
+export type AppState = { exercises:Exercise[]; muscleGroups:MuscleGroup[]; days:PlanDay[]; history:DayEntry[]; weightTracking:WeightTracking; weeklyWorkoutGoal:number; restSeconds:number; restTimerSound:boolean; restTimerVibration:boolean }
 
 export const STANDARD_MUSCLE_GROUPS=[
   {id:'group-chest',name:'Chest'},
@@ -60,7 +62,7 @@ export const defaultState = ():AppState => ({
       {id:'day-fri',name:'Push day',exerciseIds:['ex-bench','ex-ohp']},
       {id:'day-sat',name:'Pull day',exerciseIds:['ex-row','ex-pulldown']},
       {id:'day-sun',name:'Rest day',exerciseIds:[],isRestDay:true},
-    ], history: [], weightTracking: { enabled: false, entries: [] }
+    ], history: [], weightTracking: { enabled: false, entries: [] }, weeklyWorkoutGoal: 3, restSeconds: 60, restTimerSound: true, restTimerVibration: true
 })
 
 function weightTrackingOf(value:unknown):WeightTracking{
@@ -78,17 +80,30 @@ function weightTrackingOf(value:unknown):WeightTracking{
   return {enabled:raw.enabled===true,entries}
 }
 
+function weeklyWorkoutGoalOf(value:unknown){
+  const goal=typeof value==='number'?value:Number(value)
+  return Number.isFinite(goal)?Math.min(7,Math.max(1,Math.round(goal))):3
+}
+
+function restSecondsOf(value:unknown){
+  const seconds=typeof value==='number'?value:Number(value)
+  return Number.isFinite(seconds)?Math.min(600,Math.max(0,Math.round(seconds))):60
+}
+
 function historyOf(value:unknown):DayEntry[]{
   if(!Array.isArray(value)) return []
   return value.flatMap((v):DayEntry[]=>{
     if(!v || typeof v!=='object') return []
     const x=v as Record<string,unknown>, date=typeof x.date==='string'?x.date.trim():'', label=typeof x.label==='string'?x.label.trim():'', description=typeof x.description==='string'?x.description.trim():''
-    return date&&label?[{date,label,...(description?{description}:{})}]:[]
+    const rating=x.rating==='challenging'||x.rating==='balanced'||x.rating==='easy'?x.rating:undefined
+    const duration=typeof x.durationSeconds==='number'&&Number.isFinite(x.durationSeconds)?Math.max(0,Math.round(x.durationSeconds)):undefined
+    const performances=Array.isArray(x.performances)?x.performances.flatMap((item):ExercisePerformance[]=>{if(!item||typeof item!=='object')return[];const p=item as Record<string,unknown>;if(typeof p.exerciseId!=='string'||typeof p.exerciseName!=='string')return[];const set=Math.max(1,Math.round(Number(p.set)||1)),reps=Number(p.reps),weight=Number(p.weight),durationSeconds=Number(p.durationSeconds);return[{exerciseId:p.exerciseId,exerciseName:p.exerciseName,set,...(Number.isFinite(reps)&&reps>0?{reps}:{}),...(Number.isFinite(weight)&&weight>=0?{weight}:{}),...(Number.isFinite(durationSeconds)&&durationSeconds>0?{durationSeconds:Math.round(durationSeconds)}:{})}]}):[]
+    return date&&label?[{date,label,...(typeof x.id==='string'&&x.id?{id:x.id}:{}),...(typeof x.completedAt==='string'&&x.completedAt?{completedAt:x.completedAt}:{}),...(description?{description}:{}),...(duration!==undefined?{durationSeconds:duration}:{}),...(rating?{rating}:{}),...(performances.length?{performances}:{})}]:[]
   }).slice(0,1000)
 }
 
 function migrate(raw:Record<string,unknown>):AppState{
-  if(!Array.isArray(raw.split)) return {...defaultState(),history:historyOf(raw.history),weightTracking:weightTrackingOf(raw.weightTracking)}
+  if(!Array.isArray(raw.split)) return {...defaultState(),history:historyOf(raw.history),weightTracking:weightTrackingOf(raw.weightTracking),weeklyWorkoutGoal:weeklyWorkoutGoalOf(raw.weeklyWorkoutGoal),restSeconds:restSecondsOf(raw.restSeconds),restTimerSound:raw.restTimerSound!==false,restTimerVibration:raw.restTimerVibration!==false}
   const exercises:Exercise[]=[], muscleGroups:MuscleGroup[]=[], days:PlanDay[]=[]
   raw.split.forEach((v,i)=>{
     const x=typeof v==='string'?{name:v}:v&&typeof v==='object'?v as Record<string,unknown>:{}
@@ -99,7 +114,7 @@ function migrate(raw:Record<string,unknown>):AppState{
     muscleGroups.push({id:groupId,name,exerciseIds}); days.push({id:`migrated-day-${i}`,name,exerciseIds})
   })
   STANDARD_MUSCLE_GROUPS.forEach(group=>{if(!muscleGroups.some(existing=>existing.name.toLowerCase()===group.name.toLowerCase()))muscleGroups.push({...group,exerciseIds:[]})})
-  return {exercises,muscleGroups,days,history:historyOf(raw.history),weightTracking:weightTrackingOf(raw.weightTracking)}
+  return {exercises,muscleGroups,days,history:historyOf(raw.history),weightTracking:weightTrackingOf(raw.weightTracking),weeklyWorkoutGoal:weeklyWorkoutGoalOf(raw.weeklyWorkoutGoal),restSeconds:restSecondsOf(raw.restSeconds),restTimerSound:raw.restTimerSound!==false,restTimerVibration:raw.restTimerVibration!==false}
 }
 
 function normalize(value:unknown):AppState{
@@ -118,7 +133,7 @@ function normalize(value:unknown):AppState{
   exercises=exercises.map(ex=>({...ex,muscleGroupIds:[...new Set([...(ex.muscleGroupIds||[]).filter(id=>groupIds.has(id)),...muscleGroups.filter(group=>group.exerciseIds.includes(ex.id)).map(group=>group.id)])]}))
   muscleGroups.forEach(group=>group.exerciseIds=exercises.filter(ex=>ex.muscleGroupIds?.includes(group.id)).map(ex=>ex.id))
   const days=raw.days.flatMap((v):PlanDay[]=>{if(!v||typeof v!=='object')return[];const x=v as Record<string,unknown>;if(typeof x.id!=='string'||typeof x.name!=='string'||!x.name.trim())return[];const legacyGroupIds=Array.isArray(x.muscleGroupIds)?x.muscleGroupIds.filter((id):id is string=>typeof id==='string'&&groupIds.has(id)):[];const directIds=Array.isArray(x.exerciseIds)?x.exerciseIds.filter((id):id is string=>typeof id==='string'&&exIds.has(id)):[];const exerciseIds=directIds.length||Array.isArray(x.exerciseIds)?directIds:[...new Set(legacyGroupIds.flatMap(id=>muscleGroups.find(group=>group.id===id)?.exerciseIds||[]))];return[{id:x.id,name:x.name.trim(),exerciseIds,...(legacyGroupIds.length?{muscleGroupIds:legacyGroupIds}:{}),...(x.isRestDay===true?{isRestDay:true}:{})}]})
-  return {exercises,muscleGroups,days,history:historyOf(raw.history),weightTracking:weightTrackingOf(raw.weightTracking)}
+  return {exercises,muscleGroups,days,history:historyOf(raw.history),weightTracking:weightTrackingOf(raw.weightTracking),weeklyWorkoutGoal:weeklyWorkoutGoalOf(raw.weeklyWorkoutGoal),restSeconds:restSecondsOf(raw.restSeconds),restTimerSound:raw.restTimerSound!==false,restTimerVibration:raw.restTimerVibration!==false}
 }
 
 export function loadState():AppState{try{const raw=localStorage.getItem(KEY)||localStorage.getItem(LEGACY_KEY);return raw?normalize(JSON.parse(raw)):defaultState()}catch(e){console.error(e);return defaultState()}}

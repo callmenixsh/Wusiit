@@ -1,6 +1,6 @@
 import React from 'react'
 import TodayCard from '../components/TodayCard'
-import { AppState } from '../lib/storage'
+import { AppState, DayEntry } from '../lib/storage'
 import { localDateString } from '../lib/dates'
 
 type HomeProps = {
@@ -18,6 +18,9 @@ type HomeProps = {
   isResting: boolean
   restNextExerciseId: string
   onSkipRest: () => void
+  onExtendRest: () => void
+  onToggleRestSound: () => void
+  onToggleRestVibration: () => void
   activeExerciseId: string
   activeSet: number
   completedExerciseIds: string[]
@@ -26,6 +29,8 @@ type HomeProps = {
   onCompleteExercise: (id:string) => void
   onRateExercise: (rating:'hard'|'right'|'easy') => void
   lastWorkoutDate: string
+  completedToday?: DayEntry
+  onStartNextWorkoutToday: () => void
   onLogWeight: (weight:number, date?:string) => void
 }
 
@@ -44,6 +49,9 @@ export default function Home({
   isResting,
   restNextExerciseId,
   onSkipRest,
+  onExtendRest,
+  onToggleRestSound,
+  onToggleRestVibration,
   activeExerciseId,
   activeSet,
   completedExerciseIds,
@@ -52,6 +60,8 @@ export default function Home({
   onCompleteExercise,
   onRateExercise,
   lastWorkoutDate,
+  completedToday,
+  onStartNextWorkoutToday,
   onLogWeight,
 }: HomeProps) {
   const latestWeight = state.weightTracking.entries[0]
@@ -89,6 +99,9 @@ export default function Home({
       isResting={isResting}
       restNextExerciseId={restNextExerciseId}
       onSkipRest={onSkipRest}
+      onExtendRest={onExtendRest}
+      onToggleRestSound={onToggleRestSound}
+      onToggleRestVibration={onToggleRestVibration}
       activeExerciseId={activeExerciseId}
       activeSet={activeSet}
       completedExerciseIds={completedExerciseIds}
@@ -97,6 +110,8 @@ export default function Home({
       onCompleteExercise={onCompleteExercise}
       onRateExercise={onRateExercise}
       lastWorkoutDate={lastWorkoutDate}
+      completedToday={completedToday}
+      onStartNextWorkoutToday={onStartNextWorkoutToday}
     />
     </div>
   )

@@ -16,6 +16,10 @@ type SettingsProps = {
   onCycleTheme: () => void
   weightTrackingEnabled: boolean
   onToggleWeightTracking: () => void
+  weeklyWorkoutGoal: number
+  onWeeklyWorkoutGoalChange: (goal:number) => void
+  restSeconds: number
+  onRestSecondsChange: (seconds:number) => void
 }
 
 export default function Settings({
@@ -31,6 +35,10 @@ export default function Settings({
   onCycleTheme,
   weightTrackingEnabled,
   onToggleWeightTracking,
+  weeklyWorkoutGoal,
+  onWeeklyWorkoutGoalChange,
+  restSeconds,
+  onRestSecondsChange,
 }: SettingsProps) {
   return (
     <>
@@ -70,6 +78,18 @@ export default function Settings({
 
         <div className="rounded-xl border border-black/15 dark:border-white/25 p-4 bg-black/[0.015] dark:bg-white/[0.02]">
           <div className="text-[11px] uppercase tracking-wider text-black/60 dark:text-white/60">Workout Settings</div>
+          <label className="mt-3 flex items-center justify-between gap-4 rounded-lg border border-black/15 px-3 py-2.5 dark:border-white/20">
+            <span><span className="block text-sm font-medium">Weekly streak goal</span><span className="mt-0.5 block text-xs text-black/55 dark:text-white/55">Workouts needed each week</span></span>
+            <select aria-label="Weekly workout goal" value={weeklyWorkoutGoal} onChange={event=>onWeeklyWorkoutGoalChange(Number(event.target.value))} className="min-h-10 rounded-lg border border-black/20 bg-white px-3 text-sm font-medium text-black dark:border-white/30 dark:bg-black dark:text-white">
+              {[1,2,3,4,5,6,7].map(goal=><option key={goal} value={goal}>{goal}×</option>)}
+            </select>
+          </label>
+          <label className="mt-2 flex items-center justify-between gap-4 rounded-lg border border-black/15 px-3 py-2.5 dark:border-white/20">
+            <span><span className="block text-sm font-medium">Rest timer</span><span className="mt-0.5 block text-xs text-black/55 dark:text-white/55">Default rest after every set</span></span>
+            <select aria-label="Rest timer duration" value={restSeconds} onChange={event=>onRestSecondsChange(Number(event.target.value))} className="min-h-10 rounded-lg border border-black/20 bg-white px-3 text-sm font-medium text-black dark:border-white/30 dark:bg-black dark:text-white">
+              {[0,30,45,60,75,90,120,180,300].map(seconds=><option key={seconds} value={seconds}>{seconds===0?'Off':seconds<60?`${seconds}s`:`${seconds/60}m${seconds%60?` ${seconds%60}s`:''}`}</option>)}
+            </select>
+          </label>
           <button className="mt-3 w-full py-2.5 rounded-lg bg-black text-white dark:bg-white dark:text-black border border-black dark:border-white" onClick={onOpenTemplates}>Use Templates</button>
         </div>
 

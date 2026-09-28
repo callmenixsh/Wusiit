@@ -4,7 +4,7 @@ import Home from './pages/Home'
 import QueueEditor from './pages/QueueEditor'
 import History from './pages/History'
 import Settings from './pages/Settings'
-import { loadState, saveState, exportJSON, importJSON, AppState } from './lib/storage'
+import { loadState, saveState, exportJSON, importJSON, AppState, WorkoutRating } from './lib/storage'
 import { addHistoryForCurrentDay, advanceToNextDay } from './lib/queue'
 import { localDateString } from './lib/dates'
 
@@ -17,9 +17,11 @@ const LAST_WORKOUT_DATE_KEY = 'wusiit.lastWorkoutDate'
 const COMPLETED_EXERCISES_KEY = 'wusiit.workout.completed'
 const ACTIVE_EXERCISE_KEY = 'wusiit.workout.activeExercise'
 const EXERCISE_TIMER_END_KEY = 'wusiit.workout.exerciseTimerEnd'
-const REST_SECONDS = 60
+const ADVANCED_HISTORY_ENTRY_KEY = 'wusiit.workout.advancedHistoryEntry'
+const WORKOUT_FEEDBACK_KEY = 'wusiit.workout.feedback'
 
 type PendingRest = { exerciseId:string; set:number; durationSeconds:number }
+type FeedbackCounts = { hard:number; right:number; easy:number }
 
 type ThemePref = 'system'|'light'|'dark'
 
@@ -37,6 +39,10 @@ export default function App(){
   const [activeExerciseId, setActiveExerciseId] = useState(()=>localStorage.getItem(ACTIVE_EXERCISE_KEY)||'')
   const [exerciseTimerEnd, setExerciseTimerEnd] = useState(()=>Number(localStorage.getItem(EXERCISE_TIMER_END_KEY))||0)
   const [ratingExerciseId, setRatingExerciseId] = useState<string|null>(null)
+  const [showNextWorkoutToday, setShowNextWorkoutToday] = useState(false)
+  const [feedbackCounts,setFeedbackCounts]=useState<FeedbackCounts>(()=>{
+    try{const value=JSON.parse(localStorage.getItem(WORKOUT_FEEDBACK_KEY)||'{}');return {hard:Number(value.hard)||0,right:Number(value.right)||0,easy:Number(value.easy)||0}}catch{return {hard:0,right:0,easy:0}}
+  })
   const [activeSet, setActiveSet] = useState(1)
   const [restTimerEnd, setRestTimerEnd] = useState(0)
   const [pendingRest, setPendingRest] = useState<PendingRest|null>(null)
@@ -69,6 +75,14 @@ export default function App(){
     saveState(state)
   },[state])
 
+  useEffect(()=>{
+    const latest=state.history[0]
+    if(!latest?.id || latest.date>=localDateString())return
+    if(localStorage.getItem(ADVANCED_HISTORY_ENTRY_KEY)===latest.id)return
+    localStorage.setItem(ADVANCED_HISTORY_ENTRY_KEY,latest.id)
+    setState(prev=>{const next:AppState=JSON.parse(JSON.stringify(prev));advanceToNextDay(next);return next})
+  },[state.history,nowTs])
+
   useEffect(()=>{workoutStartedAt?localStorage.setItem(WORKOUT_START_KEY,String(workoutStartedAt)):localStorage.removeItem(WORKOUT_START_KEY)},[workoutStartedAt])
   useEffect(()=>{workoutPausedAt?localStorage.setItem(WORKOUT_PAUSED_AT_KEY,String(workoutPausedAt)):localStorage.removeItem(WORKOUT_PAUSED_AT_KEY)},[workoutPausedAt])
   useEffect(()=>localStorage.setItem(WORKOUT_PAUSED_TOTAL_KEY,String(workoutPausedTotal)),[workoutPausedTotal])
@@ -87,6 +101,7 @@ export default function App(){
   useEffect(()=>localStorage.setItem(COMPLETED_EXERCISES_KEY,JSON.stringify(completedExerciseIds)),[completedExerciseIds])
   useEffect(()=>{activeExerciseId?localStorage.setItem(ACTIVE_EXERCISE_KEY,activeExerciseId):localStorage.removeItem(ACTIVE_EXERCISE_KEY)},[activeExerciseId])
   useEffect(()=>localStorage.setItem(EXERCISE_TIMER_END_KEY,String(exerciseTimerEnd)),[exerciseTimerEnd])
+  useEffect(()=>localStorage.setItem(WORKOUT_FEEDBACK_KEY,JSON.stringify(feedbackCounts)),[feedbackCounts])
 
   function currentExerciseIds(source=state){
     const day=source.days[0]
@@ -110,14 +125,22 @@ export default function App(){
     setWorkoutStartedAt(Date.now())
     setWorkoutPausedAt(0)
     setWorkoutPausedTotal(0)
+    setFeedbackCounts({hard:0,right:0,easy:0})
     const first=currentExerciseIds()[0]
     if(first)startExercise(first)
   }
 
   function handleFinishWorkout(){
     if(workoutStartedAt <= 0) return
-    setState(prev=>{const next:AppState=JSON.parse(JSON.stringify(prev));addHistoryForCurrentDay(next);advanceToNextDay(next);return next})
+    const finishedAt=workoutPausedAt||Date.now()
+    const durationSeconds=Math.max(0,Math.floor((finishedAt-workoutStartedAt-workoutPausedTotal)/1000))
+    const feedbackTotal=feedbackCounts.hard+feedbackCounts.right+feedbackCounts.easy
+    const feedbackAverage=feedbackTotal?(feedbackCounts.easy-feedbackCounts.hard)/feedbackTotal:0
+    const rating:WorkoutRating=feedbackAverage<=-0.35?'challenging':feedbackAverage>=0.35?'easy':'balanced'
+    setState(prev=>{const next:AppState=JSON.parse(JSON.stringify(prev));addHistoryForCurrentDay(next,{durationSeconds,rating});return next})
     setLastWorkoutDate(localDateString())
+    setShowNextWorkoutToday(false)
+    setFeedbackCounts({hard:0,right:0,easy:0})
     setWorkoutStartedAt(0);setWorkoutPausedAt(0);setWorkoutPausedTotal(0);setExerciseTimerEnd(0);setRestTimerEnd(0);setPendingRest(null);setActiveExerciseId('');setCompletedExerciseIds([]);setRatingExerciseId(null)
   }
 
@@ -131,6 +154,27 @@ export default function App(){
     })
   }
 
+  function handleStartNextWorkoutToday(){
+    const nextDay=state.days[1]
+    if(!nextDay)return
+    if(state.history[0]?.id)localStorage.setItem(ADVANCED_HISTORY_ENTRY_KEY,state.history[0].id)
+    setShowNextWorkoutToday(true)
+    setState(prev=>{const next:AppState=JSON.parse(JSON.stringify(prev));advanceToNextDay(next);return next})
+    if(nextDay.isRestDay)return
+    setCompletedExerciseIds([])
+    setWorkoutStartedAt(Date.now())
+    setWorkoutPausedAt(0)
+    setWorkoutPausedTotal(0)
+    setFeedbackCounts({hard:0,right:0,easy:0})
+    const first=[...new Set(nextDay.exerciseIds)][0]
+    if(first){
+      const exercise=state.exercises.find(ex=>ex.id===first)
+      setActiveExerciseId(first)
+      setActiveSet(1)
+      setExerciseTimerEnd(exercise?.tracking==='timed'?Date.now()+(exercise.durationSeconds||30)*1000:0)
+    }
+  }
+
   function handleEndWorkout(){
     if(!(workoutStartedAt > 0)) return
     if(!confirm('Cancel this workout? It will not be added to history.')) return
@@ -142,6 +186,8 @@ export default function App(){
     setPendingRest(null)
     setActiveExerciseId('')
     setCompletedExerciseIds([])
+    setRatingExerciseId(null)
+    setFeedbackCounts({hard:0,right:0,easy:0})
   }
 
   function handleToggleWorkoutPause(){
@@ -172,8 +218,15 @@ export default function App(){
     setExerciseTimerEnd(next.durationSeconds?Date.now()+next.durationSeconds*1000:0)
   }
 
+  function extendRest(){if(restTimerEnd)setRestTimerEnd(value=>value+30000)}
+
+  function notifyRestComplete(){
+    if(state.restTimerVibration&&navigator.vibrate)navigator.vibrate([180,80,180])
+    if(state.restTimerSound)try{const AudioContextClass=window.AudioContext||(window as typeof window&{webkitAudioContext?:typeof AudioContext}).webkitAudioContext;if(AudioContextClass){const context=new AudioContextClass(),oscillator=context.createOscillator(),gain=context.createGain();oscillator.connect(gain);gain.connect(context.destination);oscillator.frequency.value=880;gain.gain.value=.08;oscillator.start();oscillator.stop(context.currentTime+.18)}}catch{}
+  }
+
   useEffect(()=>{
-    if(pendingRest&&restTimerEnd>0&&!workoutPausedAt&&nowTs>=restTimerEnd)finishRest()
+    if(pendingRest&&restTimerEnd>0&&!workoutPausedAt&&nowTs>=restTimerEnd){notifyRestComplete();finishRest()}
   },[nowTs,restTimerEnd,workoutPausedAt,pendingRest])
 
   function shiftReps(reps:string|undefined,delta:number){
@@ -185,13 +238,15 @@ export default function App(){
     if(!ratingExerciseId)return
     const finishedId=ratingExerciseId
     const exercise=state.exercises.find(ex=>ex.id===finishedId)
+    setFeedbackCounts(counts=>({...counts,[rating]:counts[rating]+1}))
     if(rating!=='right')setState(prev=>({...prev,exercises:prev.exercises.map(ex=>ex.id===finishedId?(ex.tracking==='timed'?{...ex,durationSeconds:Math.max(5,(ex.durationSeconds||30)+(rating==='easy'?5:-5))}:{...ex,reps:shiftReps(ex.reps,rating==='easy'?2:-2)}):ex)}))
     setRatingExerciseId(null)
     if(exercise&&activeSet<(exercise.sets||1)){
       const duration=exercise.tracking==='timed'?Math.max(5,(exercise.durationSeconds||30)+(rating==='easy'?5:rating==='hard'?-5:0)):0
       setExerciseTimerEnd(0)
+      if(state.restSeconds===0){setActiveExerciseId(finishedId);setActiveSet(activeSet+1);setExerciseTimerEnd(duration?Date.now()+duration*1000:0);return}
       setPendingRest({exerciseId:finishedId,set:activeSet+1,durationSeconds:duration})
-      setRestTimerEnd(Date.now()+REST_SECONDS*1000)
+      setRestTimerEnd(Date.now()+state.restSeconds*1000)
       return
     }
     const completed=[...new Set([...completedExerciseIds,finishedId])]
@@ -200,8 +255,9 @@ export default function App(){
     if(next){
       const nextExercise=state.exercises.find(ex=>ex.id===next)
       setExerciseTimerEnd(0)
+      if(state.restSeconds===0){setActiveExerciseId(next);setActiveSet(1);setExerciseTimerEnd(nextExercise?.tracking==='timed'?Date.now()+(nextExercise.durationSeconds||30)*1000:0);return}
       setPendingRest({exerciseId:next,set:1,durationSeconds:nextExercise?.tracking==='timed'?(nextExercise.durationSeconds||30):0})
-      setRestTimerEnd(Date.now()+REST_SECONDS*1000)
+      setRestTimerEnd(Date.now()+state.restSeconds*1000)
     }else{setActiveExerciseId('');setExerciseTimerEnd(0)}
   }
 
@@ -308,6 +364,8 @@ export default function App(){
     localStorage.removeItem(COMPLETED_EXERCISES_KEY)
     localStorage.removeItem(ACTIVE_EXERCISE_KEY)
     localStorage.removeItem(EXERCISE_TIMER_END_KEY)
+    localStorage.removeItem(ADVANCED_HISTORY_ENTRY_KEY)
+    localStorage.removeItem(WORKOUT_FEEDBACK_KEY)
     setState(loadState())
     setWorkoutStartedAt(0)
     setWorkoutPausedAt(0)
@@ -332,6 +390,10 @@ export default function App(){
 
   function handleDeleteWeight(id:string){
     setState(prev=>({...prev,weightTracking:{...prev.weightTracking,entries:prev.weightTracking.entries.filter(entry=>entry.id!==id)}}))
+  }
+
+  function handleDeleteWorkout(id:string){
+    setState(prev=>({...prev,history:prev.history.filter(entry=>entry.id!==id)}))
   }
 
   return (
@@ -388,6 +450,9 @@ export default function App(){
               isResting={Boolean(pendingRest)}
               restNextExerciseId={pendingRest?.exerciseId||''}
               onSkipRest={finishRest}
+              onExtendRest={extendRest}
+              onToggleRestSound={()=>setState(prev=>({...prev,restTimerSound:!prev.restTimerSound}))}
+              onToggleRestVibration={()=>setState(prev=>({...prev,restTimerVibration:!prev.restTimerVibration}))}
               activeExerciseId={activeExerciseId}
               activeSet={activeSet}
               completedExerciseIds={completedExerciseIds}
@@ -396,6 +461,8 @@ export default function App(){
               onCompleteExercise={handleCompleteExercise}
               onRateExercise={handleExerciseRating}
               lastWorkoutDate={lastWorkoutDate}
+              completedToday={!showNextWorkoutToday&&state.history[0]?.date===localDateString()?state.history[0]:undefined}
+              onStartNextWorkoutToday={handleStartNextWorkoutToday}
               onLogWeight={handleLogWeight}
             />
           )}
@@ -408,7 +475,7 @@ export default function App(){
               onTemplateDraftApplied={()=>setTemplateDraftItems(null)}
             />
           )}
-          {view==='history' && <History state={state} lastWorkoutDate={lastWorkoutDate} onLogWeight={handleLogWeight} onDeleteWeight={handleDeleteWeight} />}
+          {view==='history' && <History state={state} lastWorkoutDate={lastWorkoutDate} onLogWeight={handleLogWeight} onDeleteWeight={handleDeleteWeight} onDeleteWorkout={handleDeleteWorkout} onGoHome={()=>setView('home')} />}
 
           {view==='settings' && (
             <Settings
@@ -429,6 +496,10 @@ export default function App(){
               }}
               weightTrackingEnabled={state.weightTracking.enabled}
               onToggleWeightTracking={()=>setState(prev=>({...prev,weightTracking:{...prev.weightTracking,enabled:!prev.weightTracking.enabled}}))}
+              weeklyWorkoutGoal={state.weeklyWorkoutGoal}
+              onWeeklyWorkoutGoalChange={weeklyWorkoutGoal=>setState(prev=>({...prev,weeklyWorkoutGoal}))}
+              restSeconds={state.restSeconds}
+              onRestSecondsChange={restSeconds=>setState(prev=>({...prev,restSeconds}))}
             />
           )}
         </main>
