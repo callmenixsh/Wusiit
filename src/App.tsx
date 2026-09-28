@@ -1,557 +1,1213 @@
-import React, { useEffect, useState } from 'react'
-import { Dumbbell, History as HistoryIcon, ListTree, Settings as SettingsIcon } from 'lucide-react'
-import Home from './pages/Home'
-import QueueEditor from './pages/QueueEditor'
-import History from './pages/History'
-import Settings from './pages/Settings'
-import { loadState, saveState, exportJSON, importJSON, AppState, WorkoutRating } from './lib/storage'
-import { addHistoryForCurrentDay, advanceToNextDay } from './lib/queue'
-import { localDateString } from './lib/dates'
-import { clearLegacyWorkoutSession, loadWorkoutSession, saveWorkoutSession, PendingRest, FeedbackCounts } from './lib/workoutSession'
-import { isStandalone, notificationStatus, requestNotifications, syncPushSubscription, NotificationStatus } from './lib/notifications'
-import Modal, { dangerButton, DialogActions, primaryButton, secondaryButton } from './components/Modal'
-import Toast from './components/Toast'
+import React, { useEffect, useState } from "react";
+import {
+	Dumbbell,
+	History as HistoryIcon,
+	ListTree,
+	Settings as SettingsIcon,
+} from "lucide-react";
+import Home from "./pages/Home";
+import QueueEditor from "./pages/QueueEditor";
+import History from "./pages/History";
+import Settings from "./pages/Settings";
+import {
+	loadState,
+	saveState,
+	exportJSON,
+	importJSON,
+	exportPlanJSON,
+	importPlanJSON,
+	AppState,
+	WorkoutRating,
+} from "./lib/storage";
+import { addHistoryForCurrentDay, advanceToNextDay } from "./lib/queue";
+import { localDateString } from "./lib/dates";
+import {
+	recommendedWarmupAreas,
+	WarmupStep,
+	warmupStepsFor,
+} from "./lib/warmup";
+import {
+	clearLegacyWorkoutSession,
+	loadWorkoutSession,
+	saveWorkoutSession,
+	PendingRest,
+	FeedbackCounts,
+} from "./lib/workoutSession";
+import {
+	isStandalone,
+	notificationStatus,
+	requestNotifications,
+	syncPushSubscription,
+	NotificationStatus,
+} from "./lib/notifications";
+import Modal, {
+	dangerButton,
+	DialogActions,
+	primaryButton,
+	secondaryButton,
+} from "./components/Modal";
+import Toast from "./components/Toast";
 
-const THEME_KEY = 'wusiit.theme'
-const LAST_WORKOUT_DATE_KEY = 'wusiit.lastWorkoutDate'
-const ADVANCED_HISTORY_ENTRY_KEY = 'wusiit.workout.advancedHistoryEntry'
+const THEME_KEY = "wusiit.theme";
+const LAST_WORKOUT_DATE_KEY = "wusiit.lastWorkoutDate";
+const ADVANCED_HISTORY_ENTRY_KEY = "wusiit.workout.advancedHistoryEntry";
 
-type ThemePref = 'system'|'light'|'dark'
-type Confirmation={title:string;description:string;confirmLabel:string;danger?:boolean;action:()=>void}
+type ThemePref = "system" | "light" | "dark";
+type Confirmation = {
+	title: string;
+	description: string;
+	confirmLabel: string;
+	danger?: boolean;
+	action: () => void;
+};
 
-export default function App(){
-  const [restoredSession] = useState(()=>loadWorkoutSession())
-  const [state, setState] = useState<AppState>(()=>loadState())
-  const [view, setView] = useState<'home'|'edit'|'history'|'settings'>('home')
-  const [workoutStartedAt, setWorkoutStartedAt] = useState<number>(()=>restoredSession?.startedAt||0)
-  const [workoutPausedAt, setWorkoutPausedAt] = useState<number>(()=>restoredSession?.pausedAt||0)
-  const [workoutPausedTotal, setWorkoutPausedTotal] = useState<number>(()=>restoredSession?.pausedTotal||0)
-  const [lastWorkoutDate, setLastWorkoutDate] = useState<string>(()=>localStorage.getItem(LAST_WORKOUT_DATE_KEY) || '')
-  const [nowTs, setNowTs] = useState<number>(()=>Date.now())
-  const [completedExerciseIds, setCompletedExerciseIds] = useState<string[]>(()=>restoredSession?.completedExerciseIds||[])
-  const [activeExerciseId, setActiveExerciseId] = useState(()=>restoredSession?.activeExerciseId||'')
-  const [exerciseTimerEnd, setExerciseTimerEnd] = useState(()=>restoredSession?.exerciseTimerEnd||0)
-  const [ratingExerciseId, setRatingExerciseId] = useState<string|null>(null)
-  const [showNextWorkoutToday, setShowNextWorkoutToday] = useState(false)
-  const [feedbackCounts,setFeedbackCounts]=useState<FeedbackCounts>(()=>restoredSession?.feedbackCounts||{hard:0,right:0,easy:0})
-  const [activeSet, setActiveSet] = useState(()=>restoredSession?.activeSet||1)
-  const [restTimerEnd, setRestTimerEnd] = useState(()=>restoredSession?.restTimerEnd||0)
-  const [pendingRest, setPendingRest] = useState<PendingRest|null>(()=>restoredSession?.pendingRest||null)
-  const [notificationPermission,setNotificationPermission]=useState<NotificationStatus>(()=>notificationStatus())
-  const [installPrompt,setInstallPrompt]=useState<Event|null>(null)
-  const [themePref, setThemePref] = useState<ThemePref>(()=>{
-    const t = localStorage.getItem(THEME_KEY)
-    return (t === 'light' || t === 'dark') ? t : 'system'
-  })
-  const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false)
-  const [templateDraftItems, setTemplateDraftItems] = useState<{name:string,description?:string}[] | null>(null)
-  const [templateDraftToken, setTemplateDraftToken] = useState(0)
-  const [confirmation,setConfirmation]=useState<Confirmation|null>(null)
-  const [importOpen,setImportOpen]=useState(false)
-  const [importDraft,setImportDraft]=useState('')
-  const [importError,setImportError]=useState('')
-  const [weightOpen,setWeightOpen]=useState(false)
-  const [weightDraft,setWeightDraft]=useState('')
-  const [weightError,setWeightError]=useState('')
-  const [toast,setToast]=useState('')
+export default function App() {
+	const [restoredSession] = useState(() => loadWorkoutSession());
+	const [state, setState] = useState<AppState>(() => loadState());
+	const [view, setView] = useState<"home" | "edit" | "history" | "settings">(
+		"home",
+	);
+	const [workoutStartedAt, setWorkoutStartedAt] = useState<number>(
+		() => restoredSession?.startedAt || 0,
+	);
+	const [workoutPausedAt, setWorkoutPausedAt] = useState<number>(
+		() => restoredSession?.pausedAt || 0,
+	);
+	const [workoutPausedTotal, setWorkoutPausedTotal] = useState<number>(
+		() => restoredSession?.pausedTotal || 0,
+	);
+	const [lastWorkoutDate, setLastWorkoutDate] = useState<string>(
+		() => localStorage.getItem(LAST_WORKOUT_DATE_KEY) || "",
+	);
+	const [nowTs, setNowTs] = useState<number>(() => Date.now());
+	const [completedExerciseIds, setCompletedExerciseIds] = useState<string[]>(
+		() => restoredSession?.completedExerciseIds || [],
+	);
+	const [activeExerciseId, setActiveExerciseId] = useState(
+		() => restoredSession?.activeExerciseId || "",
+	);
+	const [exerciseTimerEnd, setExerciseTimerEnd] = useState(
+		() => restoredSession?.exerciseTimerEnd || 0,
+	);
+	const [ratingExerciseId, setRatingExerciseId] = useState<string | null>(null);
+	const [showNextWorkoutToday, setShowNextWorkoutToday] = useState(false);
+	const [feedbackCounts, setFeedbackCounts] = useState<FeedbackCounts>(
+		() => restoredSession?.feedbackCounts || { hard: 0, right: 0, easy: 0 },
+	);
+	const [activeSet, setActiveSet] = useState(
+		() => restoredSession?.activeSet || 1,
+	);
+	const [restTimerEnd, setRestTimerEnd] = useState(
+		() => restoredSession?.restTimerEnd || 0,
+	);
+	const [pendingRest, setPendingRest] = useState<PendingRest | null>(
+		() => restoredSession?.pendingRest || null,
+	);
+	const [notificationPermission, setNotificationPermission] =
+		useState<NotificationStatus>(() => notificationStatus());
+	const [installPrompt, setInstallPrompt] = useState<Event | null>(null);
+	const [themePref, setThemePref] = useState<ThemePref>(() => {
+		const t = localStorage.getItem(THEME_KEY);
+		return t === "light" || t === "dark" ? t : "system";
+	});
+	const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
+	const [templateDraftItems, setTemplateDraftItems] = useState<
+		{ name: string; description?: string; warmup?: WarmupStep[] }[] | null
+	>(null);
+	const [templateDraftToken, setTemplateDraftToken] = useState(0);
+	const [confirmation, setConfirmation] = useState<Confirmation | null>(null);
+	const [importOpen, setImportOpen] = useState(false);
+	const [importKind, setImportKind] = useState<"backup" | "plan">("backup");
+	const [importDraft, setImportDraft] = useState("");
+	const [importError, setImportError] = useState("");
+	const [weightOpen, setWeightOpen] = useState(false);
+	const [weightDraft, setWeightDraft] = useState("");
+	const [weightError, setWeightError] = useState("");
+	const [toast, setToast] = useState("");
+	const [warmupStage, setWarmupStage] = useState<
+		"choice" | "areas" | "steps" | null
+	>(() => restoredSession?.warmupStage || null);
+	const [warmupAreas, setWarmupAreas] = useState<string[]>(
+		() => restoredSession?.warmupAreas || [],
+	);
+	const [completedWarmupSteps, setCompletedWarmupSteps] = useState<number[]>(
+		() => restoredSession?.completedWarmupSteps || [],
+	);
 
-  // apply effective theme
-  useEffect(()=>{
-    function apply(pref: ThemePref){
-      const systemDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
-      const effectiveDark = pref === 'system' ? systemDark : pref === 'dark'
-      if(effectiveDark) document.documentElement.classList.add('dark')
-      else document.documentElement.classList.remove('dark')
-    }
-    apply(themePref)
+	// apply effective theme
+	useEffect(() => {
+		function apply(pref: ThemePref) {
+			const systemDark =
+				window.matchMedia &&
+				window.matchMedia("(prefers-color-scheme: dark)").matches;
+			const effectiveDark = pref === "system" ? systemDark : pref === "dark";
+			if (effectiveDark) document.documentElement.classList.add("dark");
+			else document.documentElement.classList.remove("dark");
+		}
+		apply(themePref);
 
-    // listen for system changes when following system
-    const mql = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)')
-    function onChange(){ if(themePref === 'system') apply('system') }
-    mql && mql.addEventListener && mql.addEventListener('change', onChange)
-    return ()=> mql && mql.removeEventListener && mql.removeEventListener('change', onChange)
-  },[themePref])
+		// listen for system changes when following system
+		const mql =
+			window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)");
+		function onChange() {
+			if (themePref === "system") apply("system");
+		}
+		mql && mql.addEventListener && mql.addEventListener("change", onChange);
+		return () =>
+			mql &&
+			mql.removeEventListener &&
+			mql.removeEventListener("change", onChange);
+	}, [themePref]);
 
-  useEffect(()=>{
-    saveState(state)
-  },[state])
+	useEffect(() => {
+		saveState(state);
+	}, [state]);
 
-  useEffect(()=>{
-    const latest=state.history[0]
-    if(!latest?.id || latest.date>=localDateString())return
-    if(localStorage.getItem(ADVANCED_HISTORY_ENTRY_KEY)===latest.id)return
-    localStorage.setItem(ADVANCED_HISTORY_ENTRY_KEY,latest.id)
-    setState(prev=>{const next:AppState=JSON.parse(JSON.stringify(prev));advanceToNextDay(next);return next})
-  },[state.history,nowTs])
+	useEffect(() => {
+		const latest = state.history[0];
+		if (!latest?.id || latest.date >= localDateString()) return;
+		if (localStorage.getItem(ADVANCED_HISTORY_ENTRY_KEY) === latest.id) return;
+		localStorage.setItem(ADVANCED_HISTORY_ENTRY_KEY, latest.id);
+		setState((prev) => {
+			const next: AppState = JSON.parse(JSON.stringify(prev));
+			advanceToNextDay(next);
+			return next;
+		});
+	}, [state.history, nowTs]);
 
-  useEffect(()=>saveWorkoutSession(workoutStartedAt?{version:1,startedAt:workoutStartedAt,pausedAt:workoutPausedAt,pausedTotal:workoutPausedTotal,completedExerciseIds,activeExerciseId,activeSet,exerciseTimerEnd,restTimerEnd,pendingRest,feedbackCounts}:null),[workoutStartedAt,workoutPausedAt,workoutPausedTotal,completedExerciseIds,activeExerciseId,activeSet,exerciseTimerEnd,restTimerEnd,pendingRest,feedbackCounts])
+	useEffect(
+		() =>
+			saveWorkoutSession(
+				workoutStartedAt
+					? {
+							version: 1,
+							startedAt: workoutStartedAt,
+							pausedAt: workoutPausedAt,
+							pausedTotal: workoutPausedTotal,
+							completedExerciseIds,
+							activeExerciseId,
+							activeSet,
+							exerciseTimerEnd,
+							restTimerEnd,
+							pendingRest,
+							feedbackCounts,
+							warmupStage,
+							warmupAreas,
+							completedWarmupSteps,
+						}
+					: null,
+			),
+		[
+			workoutStartedAt,
+			workoutPausedAt,
+			workoutPausedTotal,
+			completedExerciseIds,
+			activeExerciseId,
+			activeSet,
+			exerciseTimerEnd,
+			restTimerEnd,
+			pendingRest,
+			feedbackCounts,
+			warmupStage,
+			warmupAreas,
+			completedWarmupSteps,
+		],
+	);
 
+	useEffect(() => {
+		if (lastWorkoutDate)
+			localStorage.setItem(LAST_WORKOUT_DATE_KEY, lastWorkoutDate);
+		else localStorage.removeItem(LAST_WORKOUT_DATE_KEY);
+	}, [lastWorkoutDate]);
 
-  useEffect(()=>{
-    if(lastWorkoutDate) localStorage.setItem(LAST_WORKOUT_DATE_KEY, lastWorkoutDate)
-    else localStorage.removeItem(LAST_WORKOUT_DATE_KEY)
-  }, [lastWorkoutDate])
+	useEffect(() => {
+		const id = window.setInterval(() => setNowTs(Date.now()), 1000);
+		return () => window.clearInterval(id);
+	}, []);
 
-  useEffect(()=>{
-    const id = window.setInterval(()=>setNowTs(Date.now()), 1000)
-    return ()=>window.clearInterval(id)
-  },[])
+	useEffect(() => {
+		const refresh = () => setNowTs(Date.now());
+		document.addEventListener("visibilitychange", refresh);
+		window.addEventListener("focus", refresh);
+		window.addEventListener("pageshow", refresh);
+		return () => {
+			document.removeEventListener("visibilitychange", refresh);
+			window.removeEventListener("focus", refresh);
+			window.removeEventListener("pageshow", refresh);
+		};
+	}, []);
+	useEffect(() => {
+		const capture = (event: Event) => {
+			event.preventDefault();
+			setInstallPrompt(event);
+		};
+		window.addEventListener("beforeinstallprompt", capture);
+		return () => window.removeEventListener("beforeinstallprompt", capture);
+	}, []);
+	useEffect(() => {
+		if (state.reminders.enabled)
+			void syncPushSubscription(state.reminders).catch(() => {});
+	}, [state.reminders]);
 
-  useEffect(()=>{
-    const refresh=()=>setNowTs(Date.now())
-    document.addEventListener('visibilitychange',refresh);window.addEventListener('focus',refresh);window.addEventListener('pageshow',refresh)
-    return()=>{document.removeEventListener('visibilitychange',refresh);window.removeEventListener('focus',refresh);window.removeEventListener('pageshow',refresh)}
-  },[])
-  useEffect(()=>{
-    const capture=(event:Event)=>{event.preventDefault();setInstallPrompt(event)}
-    window.addEventListener('beforeinstallprompt',capture)
-    return()=>window.removeEventListener('beforeinstallprompt',capture)
-  },[])
-  useEffect(()=>{if(state.reminders.enabled)void syncPushSubscription(state.reminders).catch(()=>{})},[state.reminders])
+	function currentExerciseIds(source = state) {
+		const day = source.days[0];
+		return [...new Set(day?.exerciseIds || [])];
+	}
 
-  function currentExerciseIds(source=state){
-    const day=source.days[0]
-    return [...new Set(day?.exerciseIds||[])]
-  }
+	function suggestedWarmupAreas(day: AppState["days"][number] | undefined) {
+		if (!day || day.warmup?.length) return [];
+		const usedGroupIds = new Set(
+			state.exercises
+				.filter((ex) => day.exerciseIds.includes(ex.id))
+				.flatMap((ex) => ex.muscleGroupIds || []),
+		);
+		return recommendedWarmupAreas(
+			state.muscleGroups
+				.filter((group) => usedGroupIds.has(group.id))
+				.map((group) => group.name),
+		);
+	}
 
-  function startExercise(id:string){
-    const exercise=state.exercises.find(ex=>ex.id===id)
-    setActiveExerciseId(id)
-    setActiveSet(1)
-    setExerciseTimerEnd(exercise?.tracking==='timed'?Date.now()+(exercise.durationSeconds||30)*1000:0)
-  }
+	function startExercise(id: string) {
+		const exercise = state.exercises.find((ex) => ex.id === id);
+		setActiveExerciseId(id);
+		setActiveSet(1);
+		setExerciseTimerEnd(
+			exercise?.tracking === "timed"
+				? Date.now() + (exercise.durationSeconds || 30) * 1000
+				: 0,
+		);
+	}
 
-  function handleCompleteExercise(id:string){
-    setRatingExerciseId(id)
-  }
+	function handleCompleteExercise(id: string) {
+		setRatingExerciseId(id);
+	}
 
-  function handleStartWorkout(){
-    if(workoutStartedAt > 0) return
-    setCompletedExerciseIds([])
-    setWorkoutStartedAt(Date.now())
-    setWorkoutPausedAt(0)
-    setWorkoutPausedTotal(0)
-    setFeedbackCounts({hard:0,right:0,easy:0})
-    const first=currentExerciseIds()[0]
-    if(first)startExercise(first)
-  }
+	function handleStartWorkout() {
+		if (workoutStartedAt > 0) return;
+		setCompletedExerciseIds([]);
+		setWorkoutStartedAt(Date.now());
+		setWorkoutPausedAt(0);
+		setWorkoutPausedTotal(0);
+		setFeedbackCounts({ hard: 0, right: 0, easy: 0 });
+		setWarmupStage("choice");
+		setWarmupAreas(suggestedWarmupAreas(state.days[0]));
+		setCompletedWarmupSteps([]);
+		setActiveExerciseId("");
+		setActiveSet(1);
+		setExerciseTimerEnd(0);
+	}
 
-  function handleFinishWorkout(){
-    if(workoutStartedAt <= 0) return
-    const finishedAt=workoutPausedAt||Date.now()
-    const durationSeconds=Math.max(0,Math.floor((finishedAt-workoutStartedAt-workoutPausedTotal)/1000))
-    const feedbackTotal=feedbackCounts.hard+feedbackCounts.right+feedbackCounts.easy
-    const feedbackAverage=feedbackTotal?(feedbackCounts.easy-feedbackCounts.hard)/feedbackTotal:0
-    const rating:WorkoutRating=feedbackAverage<=-0.35?'challenging':feedbackAverage>=0.35?'easy':'balanced'
-    setState(prev=>{const next:AppState=JSON.parse(JSON.stringify(prev));addHistoryForCurrentDay(next,{durationSeconds,rating});return next})
-    setLastWorkoutDate(localDateString())
-    setShowNextWorkoutToday(false)
-    setFeedbackCounts({hard:0,right:0,easy:0})
-    setWorkoutStartedAt(0);setWorkoutPausedAt(0);setWorkoutPausedTotal(0);setExerciseTimerEnd(0);setRestTimerEnd(0);setPendingRest(null);setActiveExerciseId('');setCompletedExerciseIds([]);setRatingExerciseId(null)
-  }
+	function handleFinishWorkout() {
+		if (workoutStartedAt <= 0) return;
+		const finishedAt = workoutPausedAt || Date.now();
+		const durationSeconds = Math.max(
+			0,
+			Math.floor((finishedAt - workoutStartedAt - workoutPausedTotal) / 1000),
+		);
+		const feedbackTotal =
+			feedbackCounts.hard + feedbackCounts.right + feedbackCounts.easy;
+		const feedbackAverage = feedbackTotal
+			? (feedbackCounts.easy - feedbackCounts.hard) / feedbackTotal
+			: 0;
+		const rating: WorkoutRating =
+			feedbackAverage <= -0.35
+				? "challenging"
+				: feedbackAverage >= 0.35
+					? "easy"
+					: "balanced";
+		setState((prev) => {
+			const next: AppState = JSON.parse(JSON.stringify(prev));
+			addHistoryForCurrentDay(next, { durationSeconds, rating });
+			return next;
+		});
+		setLastWorkoutDate(localDateString());
+		setShowNextWorkoutToday(false);
+		setFeedbackCounts({ hard: 0, right: 0, easy: 0 });
+		setWorkoutStartedAt(0);
+		setWorkoutPausedAt(0);
+		setWorkoutPausedTotal(0);
+		setExerciseTimerEnd(0);
+		setRestTimerEnd(0);
+		setPendingRest(null);
+		setActiveExerciseId("");
+		setCompletedExerciseIds([]);
+		setRatingExerciseId(null);
+		setWarmupStage(null);
+		setWarmupAreas([]);
+		setCompletedWarmupSteps([]);
+	}
 
-  function handleDoTomorrow(){
-    if(state.days.length < 2) return
-    setState(prev => {
-      const days = [...prev.days]
-      const first = days.shift()
-      if(first) days.push(first)
-      return { ...prev, days }
-    })
-  }
+	function handleDoTomorrow() {
+		if (state.days.length < 2) return;
+		setState((prev) => {
+			const days = [...prev.days];
+			const first = days.shift();
+			if (first) days.push(first);
+			return { ...prev, days };
+		});
+	}
 
-  function handleStartNextWorkoutToday(){
-    const nextDay=state.days[1]
-    if(!nextDay)return
-    if(state.history[0]?.id)localStorage.setItem(ADVANCED_HISTORY_ENTRY_KEY,state.history[0].id)
-    setShowNextWorkoutToday(true)
-    setState(prev=>{const next:AppState=JSON.parse(JSON.stringify(prev));advanceToNextDay(next);return next})
-    if(nextDay.isRestDay)return
-    setCompletedExerciseIds([])
-    setWorkoutStartedAt(Date.now())
-    setWorkoutPausedAt(0)
-    setWorkoutPausedTotal(0)
-    setFeedbackCounts({hard:0,right:0,easy:0})
-    const first=[...new Set(nextDay.exerciseIds)][0]
-    if(first){
-      const exercise=state.exercises.find(ex=>ex.id===first)
-      setActiveExerciseId(first)
-      setActiveSet(1)
-      setExerciseTimerEnd(exercise?.tracking==='timed'?Date.now()+(exercise.durationSeconds||30)*1000:0)
-    }
-  }
+	function handleStartNextWorkoutToday() {
+		const nextDay = state.days[1];
+		if (!nextDay) return;
+		if (state.history[0]?.id)
+			localStorage.setItem(ADVANCED_HISTORY_ENTRY_KEY, state.history[0].id);
+		setShowNextWorkoutToday(true);
+		setState((prev) => {
+			const next: AppState = JSON.parse(JSON.stringify(prev));
+			advanceToNextDay(next);
+			return next;
+		});
+		if (nextDay.isRestDay) return;
+		setCompletedExerciseIds([]);
+		setWorkoutStartedAt(Date.now());
+		setWorkoutPausedAt(0);
+		setWorkoutPausedTotal(0);
+		setFeedbackCounts({ hard: 0, right: 0, easy: 0 });
+		setWarmupStage("choice");
+		setWarmupAreas(suggestedWarmupAreas(nextDay));
+		setCompletedWarmupSteps([]);
+		setActiveExerciseId("");
+		setActiveSet(1);
+		setExerciseTimerEnd(0);
+	}
 
-  function handleEndWorkout(){
-    if(!(workoutStartedAt > 0)) return
-    setConfirmation({title:'Cancel workout?',description:'This workout will not be added to your history.',confirmLabel:'Cancel workout',danger:true,action:cancelWorkout})
-  }
+	function handleEndWorkout() {
+		if (!(workoutStartedAt > 0)) return;
+		setConfirmation({
+			title: "Cancel workout?",
+			description: "This workout will not be added to your history.",
+			confirmLabel: "Cancel workout",
+			danger: true,
+			action: cancelWorkout,
+		});
+	}
 
-  function cancelWorkout(){
-    setWorkoutStartedAt(0)
-    setWorkoutPausedAt(0)
-    setWorkoutPausedTotal(0)
-    setExerciseTimerEnd(0)
-    setRestTimerEnd(0)
-    setPendingRest(null)
-    setActiveExerciseId('')
-    setCompletedExerciseIds([])
-    setRatingExerciseId(null)
-    setFeedbackCounts({hard:0,right:0,easy:0})
-  }
+	function cancelWorkout() {
+		setWorkoutStartedAt(0);
+		setWorkoutPausedAt(0);
+		setWorkoutPausedTotal(0);
+		setExerciseTimerEnd(0);
+		setRestTimerEnd(0);
+		setPendingRest(null);
+		setActiveExerciseId("");
+		setCompletedExerciseIds([]);
+		setRatingExerciseId(null);
+		setFeedbackCounts({ hard: 0, right: 0, easy: 0 });
+		setWarmupStage(null);
+		setWarmupAreas([]);
+		setCompletedWarmupSteps([]);
+	}
 
-  function handleToggleWorkoutPause(){
-    if(!workoutStartedAt)return
-    if(workoutPausedAt){
-      const pausedFor=Date.now()-workoutPausedAt
-      setWorkoutPausedTotal(value=>value+pausedFor)
-      if(exerciseTimerEnd)setExerciseTimerEnd(value=>value+pausedFor)
-      if(restTimerEnd)setRestTimerEnd(value=>value+pausedFor)
-      setWorkoutPausedAt(0)
-    }else setWorkoutPausedAt(Date.now())
-  }
+	function beginExercises() {
+		setWarmupStage(null);
+		setCompletedWarmupSteps([]);
+		const next = currentExerciseIds().find(
+			(id) => !completedExerciseIds.includes(id),
+		);
+		if (next) startExercise(next);
+	}
 
-  const isWorkoutActive = workoutStartedAt > 0
-  const isWorkoutPaused = workoutPausedAt > 0
-  const timerNow=workoutPausedAt||Date.now()
-  const elapsedWorkoutSeconds = workoutStartedAt?Math.max(0,Math.floor((timerNow-workoutStartedAt-workoutPausedTotal)/1000)):0
-  const exerciseSecondsRemaining = Math.max(0,Math.ceil((exerciseTimerEnd-timerNow)/1000))
-  const restSecondsRemaining = Math.max(0,Math.ceil((restTimerEnd-timerNow)/1000))
+	function handleToggleWorkoutPause() {
+		if (!workoutStartedAt) return;
+		if (workoutPausedAt) {
+			const pausedFor = Date.now() - workoutPausedAt;
+			setWorkoutPausedTotal((value) => value + pausedFor);
+			if (exerciseTimerEnd) setExerciseTimerEnd((value) => value + pausedFor);
+			if (restTimerEnd) setRestTimerEnd((value) => value + pausedFor);
+			setWorkoutPausedAt(0);
+		} else setWorkoutPausedAt(Date.now());
+	}
 
-  function finishRest(){
-    if(!pendingRest)return
-    const next=pendingRest
-    setPendingRest(null)
-    setRestTimerEnd(0)
-    setActiveExerciseId(next.exerciseId)
-    setActiveSet(next.set)
-    setExerciseTimerEnd(next.durationSeconds?Date.now()+next.durationSeconds*1000:0)
-  }
+	const isWorkoutActive = workoutStartedAt > 0;
+	const isWorkoutPaused = workoutPausedAt > 0;
+	const timerNow = workoutPausedAt || Date.now();
+	const elapsedWorkoutSeconds = workoutStartedAt
+		? Math.max(
+				0,
+				Math.floor((timerNow - workoutStartedAt - workoutPausedTotal) / 1000),
+			)
+		: 0;
+	const exerciseSecondsRemaining = Math.max(
+		0,
+		Math.ceil((exerciseTimerEnd - timerNow) / 1000),
+	);
+	const restSecondsRemaining = Math.max(
+		0,
+		Math.ceil((restTimerEnd - timerNow) / 1000),
+	);
 
-  function extendRest(){if(restTimerEnd)setRestTimerEnd(value=>value+30000)}
+	function finishRest() {
+		if (!pendingRest) return;
+		const next = pendingRest;
+		setPendingRest(null);
+		setRestTimerEnd(0);
+		setActiveExerciseId(next.exerciseId);
+		setActiveSet(next.set);
+		setExerciseTimerEnd(
+			next.durationSeconds ? Date.now() + next.durationSeconds * 1000 : 0,
+		);
+	}
 
-  function notifyRestComplete(){
-    if(state.restTimerVibration&&navigator.vibrate)navigator.vibrate([180,80,180])
-    if(state.restTimerSound)try{const AudioContextClass=window.AudioContext||(window as typeof window&{webkitAudioContext?:typeof AudioContext}).webkitAudioContext;if(AudioContextClass){const context=new AudioContextClass(),oscillator=context.createOscillator(),gain=context.createGain();oscillator.connect(gain);gain.connect(context.destination);oscillator.frequency.value=880;gain.gain.value=.08;oscillator.start();oscillator.stop(context.currentTime+.18)}}catch{}
-  }
+	function extendRest() {
+		if (restTimerEnd) setRestTimerEnd((value) => value + 30000);
+	}
 
-  useEffect(()=>{
-    if(pendingRest&&restTimerEnd>0&&!workoutPausedAt&&nowTs>=restTimerEnd){notifyRestComplete();finishRest()}
-  },[nowTs,restTimerEnd,workoutPausedAt,pendingRest])
+	function notifyRestComplete() {
+		if (state.restTimerVibration && navigator.vibrate)
+			navigator.vibrate([180, 80, 180]);
+		if (state.restTimerSound)
+			try {
+				const AudioContextClass =
+					window.AudioContext ||
+					(
+						window as typeof window & {
+							webkitAudioContext?: typeof AudioContext;
+						}
+					).webkitAudioContext;
+				if (AudioContextClass) {
+					const context = new AudioContextClass(),
+						oscillator = context.createOscillator(),
+						gain = context.createGain();
+					oscillator.connect(gain);
+					gain.connect(context.destination);
+					oscillator.frequency.value = 880;
+					gain.gain.value = 0.08;
+					oscillator.start();
+					oscillator.stop(context.currentTime + 0.18);
+				}
+			} catch {}
+	}
 
-  function shiftReps(reps:string|undefined,delta:number){
-    if(!reps)return reps
-    return reps.replace(/\d+/g,value=>String(Math.max(1,Number(value)+delta)))
-  }
+	useEffect(() => {
+		if (
+			pendingRest &&
+			restTimerEnd > 0 &&
+			!workoutPausedAt &&
+			nowTs >= restTimerEnd
+		) {
+			notifyRestComplete();
+			finishRest();
+		}
+	}, [nowTs, restTimerEnd, workoutPausedAt, pendingRest]);
 
-  function handleExerciseRating(rating:'hard'|'right'|'easy'){
-    if(!ratingExerciseId)return
-    const finishedId=ratingExerciseId
-    const exercise=state.exercises.find(ex=>ex.id===finishedId)
-    setFeedbackCounts(counts=>({...counts,[rating]:counts[rating]+1}))
-    if(rating!=='right')setState(prev=>({...prev,exercises:prev.exercises.map(ex=>ex.id===finishedId?(ex.tracking==='timed'?{...ex,durationSeconds:Math.max(5,(ex.durationSeconds||30)+(rating==='easy'?5:-5))}:{...ex,reps:shiftReps(ex.reps,rating==='easy'?2:-2)}):ex)}))
-    setRatingExerciseId(null)
-    if(exercise&&activeSet<(exercise.sets||1)){
-      const duration=exercise.tracking==='timed'?Math.max(5,(exercise.durationSeconds||30)+(rating==='easy'?5:rating==='hard'?-5:0)):0
-      setExerciseTimerEnd(0)
-      if(state.restSeconds===0){setActiveExerciseId(finishedId);setActiveSet(activeSet+1);setExerciseTimerEnd(duration?Date.now()+duration*1000:0);return}
-      setPendingRest({exerciseId:finishedId,set:activeSet+1,durationSeconds:duration})
-      setRestTimerEnd(Date.now()+state.restSeconds*1000)
-      return
-    }
-    const completed=[...new Set([...completedExerciseIds,finishedId])]
-    setCompletedExerciseIds(completed)
-    const next=currentExerciseIds().find(id=>!completed.includes(id))
-    if(next){
-      const nextExercise=state.exercises.find(ex=>ex.id===next)
-      setExerciseTimerEnd(0)
-      if(state.restSeconds===0){setActiveExerciseId(next);setActiveSet(1);setExerciseTimerEnd(nextExercise?.tracking==='timed'?Date.now()+(nextExercise.durationSeconds||30)*1000:0);return}
-      setPendingRest({exerciseId:next,set:1,durationSeconds:nextExercise?.tracking==='timed'?(nextExercise.durationSeconds||30):0})
-      setRestTimerEnd(Date.now()+state.restSeconds*1000)
-    }else{setActiveExerciseId('');setExerciseTimerEnd(0)}
-  }
+	function shiftReps(reps: string | undefined, delta: number) {
+		if (!reps) return reps;
+		return reps.replace(/\d+/g, (value) =>
+			String(Math.max(1, Number(value) + delta)),
+		);
+	}
 
-  function handleSaveProgram(next: AppState){
-    setState(next)
-  }
+	function handleExerciseRating(rating: "hard" | "right" | "easy") {
+		if (!ratingExerciseId) return;
+		const finishedId = ratingExerciseId;
+		const exercise = state.exercises.find((ex) => ex.id === finishedId);
+		setFeedbackCounts((counts) => ({
+			...counts,
+			[rating]: counts[rating] + 1,
+		}));
+		if (rating !== "right")
+			setState((prev) => ({
+				...prev,
+				exercises: prev.exercises.map((ex) =>
+					ex.id === finishedId
+						? ex.tracking === "timed"
+							? {
+									...ex,
+									durationSeconds: Math.max(
+										5,
+										(ex.durationSeconds || 30) + (rating === "easy" ? 5 : -5),
+									),
+								}
+							: { ...ex, reps: shiftReps(ex.reps, rating === "easy" ? 2 : -2) }
+						: ex,
+				),
+			}));
+		setRatingExerciseId(null);
+		if (exercise && activeSet < (exercise.sets || 1)) {
+			const duration =
+				exercise.tracking === "timed"
+					? Math.max(
+							5,
+							(exercise.durationSeconds || 30) +
+								(rating === "easy" ? 5 : rating === "hard" ? -5 : 0),
+						)
+					: 0;
+			setExerciseTimerEnd(0);
+			if (state.restSeconds === 0) {
+				setActiveExerciseId(finishedId);
+				setActiveSet(activeSet + 1);
+				setExerciseTimerEnd(duration ? Date.now() + duration * 1000 : 0);
+				return;
+			}
+			setPendingRest({
+				exerciseId: finishedId,
+				set: activeSet + 1,
+				durationSeconds: duration,
+			});
+			setRestTimerEnd(Date.now() + state.restSeconds * 1000);
+			return;
+		}
+		const completed = [...new Set([...completedExerciseIds, finishedId])];
+		setCompletedExerciseIds(completed);
+		const next = currentExerciseIds().find((id) => !completed.includes(id));
+		if (next) {
+			const nextExercise = state.exercises.find((ex) => ex.id === next);
+			setExerciseTimerEnd(0);
+			if (state.restSeconds === 0) {
+				setActiveExerciseId(next);
+				setActiveSet(1);
+				setExerciseTimerEnd(
+					nextExercise?.tracking === "timed"
+						? Date.now() + (nextExercise.durationSeconds || 30) * 1000
+						: 0,
+				);
+				return;
+			}
+			setPendingRest({
+				exerciseId: next,
+				set: 1,
+				durationSeconds:
+					nextExercise?.tracking === "timed"
+						? nextExercise.durationSeconds || 30
+						: 0,
+			});
+			setRestTimerEnd(Date.now() + state.restSeconds * 1000);
+		} else {
+			setActiveExerciseId("");
+			setExerciseTimerEnd(0);
+		}
+	}
 
-  function handleUseTemplate(templateId: 'ppl'|'5day'|'arnold'|'home'){
-    let preset: {name:string,description?:string}[]
-    if(templateId === 'home'){
-      preset = [
-        {name:'Full Body',description:'Bodyweight squat\nPush-up\nGlute bridge\nSuperman'},
-        {name:'Core + Conditioning',description:'Mountain climbers\nForearm plank\nDead bug\nJumping jacks'},
-        {name:'Recovery',description:'__REST__'},
-        {name:'Lower Body + Stability',description:'Reverse lunge\nSingle-leg glute bridge\nCalf raise\nWall sit'},
-        {name:'Full Body',description:'Bodyweight squat\nPush-up\nGlute bridge\nSuperman'},
-        {name:'Mobility + Rest',description:'__REST__'},
-        {name:'Rest day',description:'__REST__'}
-      ]
-    } else if(templateId === 'ppl'){
-      preset = [
-        {name:'Push', description:'Bench press\nIncline dumbbell press\nShoulder press\nLateral raises\nTriceps pushdown'},
-        {name:'Pull', description:'Pull-ups\nLat pulldown\nBarbell row\nFace pull\nBicep curls'},
-        {name:'Legs', description:'Squats\nRomanian deadlift\nLeg press\nLeg curls\nCalf raises'},
-        {name:'Rest day',description:'__REST__'},
-        {name:'Push', description:'Bench press\nIncline dumbbell press\nShoulder press\nLateral raises\nTriceps pushdown'},
-        {name:'Pull', description:'Pull-ups\nLat pulldown\nBarbell row\nFace pull\nBicep curls'},
-        {name:'Rest day',description:'__REST__'}
-      ]
-    } else if(templateId === 'arnold'){
-      preset = [
-        {name:'Chest + Back', description:'Bench press\nIncline press\nPull-ups\nRows\nPulldowns'},
-        {name:'Shoulders + Arms', description:'Overhead press\nLateral raises\nCurls\nSkull crushers\nHammer curls'},
-        {name:'Legs', description:'Squats\nLunges\nLeg press\nHamstring curls\nCalves'},
-        {name:'Rest day',description:'__REST__'},
-        {name:'Chest + Back', description:'Bench press\nIncline press\nPull-ups\nRows\nPulldowns'},
-        {name:'Shoulders + Arms', description:'Overhead press\nLateral raises\nCurls\nSkull crushers\nHammer curls'},
-        {name:'Rest day',description:'__REST__'}
-      ]
-    } else {
-      preset = [
-        {name:'Back', description:'Lat machine top\nLat machine bottom\nRowing\nOne-arm rowing'},
-        {name:'Chest', description:'Bench flat\nBench incline\nBench decline\nFlys\nPushups'},
-        {name:'Biceps', description:'Curls\nHammer\nBarbell\nPreacher'},
-        {name:'Shoulder', description:'Press\nLateral\nFront\nShrugs'},
-        {name:'Legs', description:'Squats\nLunges\nExtensions\nPress\nCalves'},
-        {name:'Rest day',description:'__REST__'},
-        {name:'Rest day',description:'__REST__'}
-      ]
-    }
-    setTemplateDraftItems(preset)
-    setTemplateDraftToken((prev) => prev + 1)
-    setView('edit')
-    setIsTemplateModalOpen(false)
-  }
+	function handleSaveProgram(next: AppState) {
+		setState(next);
+	}
 
-  function handleExport(){
-    const data = exportJSON(state)
-    const blob = new Blob([data], {type:'application/json'})
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = 'wuwiit-backup.json'
-    a.click()
-    URL.revokeObjectURL(url)
-  }
+	function handleUseTemplate(templateId: "home") {
+		let preset: {
+			name: string;
+			description?: string;
+			warmup?: WarmupStep[];
+		}[] = [];
+		if (templateId === "home") {
+			const upper = () => warmupStepsFor(["Upper body"]);
+			const lower = () => warmupStepsFor(["Lower body", "Core"]);
+			preset = [
+				{
+					name: "Chest, Shoulders + Triceps",
+					description:
+						"Push-Up\nWide Push-Up\nPike Push-Up\nClose-Grip Push-Up\nPush-up drop set",
+					warmup: upper(),
+				},
+				{
+					name: "Back + Biceps",
+					description:
+						"Superman Pull-Down\nReverse Snow Angel\nProne Y-T-W\nSelf-Resisted Biceps Curl\nSuperman",
+					warmup: upper(),
+				},
+				{
+					name: "Leg Strength",
+					description:
+						"Bodyweight squat\nReverse Lunge\nSingle-Leg Romanian Deadlift\nSingle-leg glute bridge\nSingle-Leg Calf Raise",
+					warmup: lower(),
+				},
+				{ name: "Rest + Mobility", description: "__REST__" },
+				{
+					name: "Upper Body Essentials",
+					description:
+						"Push-Up\nPike Push-Up\nSuperman Pull-Down\nReverse Snow Angel\nClose-Grip Push-Up\nSelf-Resisted Biceps Curl",
+					warmup: upper(),
+				},
+				{
+					name: "Lower Body + Core",
+					description:
+						"Bodyweight squat\nReverse Lunge\nSingle-leg glute bridge\nSingle-Leg Calf Raise\nReverse Crunch\nForearm Plank",
+					warmup: lower(),
+				},
+				{ name: "Full Rest", description: "__REST__" },
+			];
+		}
+		setTemplateDraftItems(preset);
+		setTemplateDraftToken((prev) => prev + 1);
+		setView("edit");
+		setIsTemplateModalOpen(false);
+	}
 
-  async function handleExportClipboard(){
-    const data = exportJSON(state)
-    try{
-      await navigator.clipboard.writeText(data)
-      setToast('Backup copied to clipboard')
-    }catch(e){
-      // fallback
-      const ta = document.createElement('textarea')
-      ta.value = data
-      document.body.appendChild(ta)
-      ta.select()
-      document.execCommand('copy')
-      ta.remove()
-      setToast('Backup copied to clipboard')
-    }
-  }
+	function handleExportPlan() {
+		const data = exportPlanJSON(state);
+		const blob = new Blob([data], { type: "application/json" });
+		const url = URL.createObjectURL(blob);
+		const a = document.createElement("a");
+		a.href = url;
+		a.download = "wuwiit-workout-plan.json";
+		a.click();
+		URL.revokeObjectURL(url);
+	}
 
-  function handleImport(){
-    setImportDraft('');setImportError('');setImportOpen(true)
-  }
+	function handleExportBackup() {
+		const data = exportJSON(state);
+		const blob = new Blob([data], { type: "application/json" });
+		const url = URL.createObjectURL(blob);
+		const a = document.createElement("a");
+		a.href = url;
+		a.download = "wuwiit-backup.json";
+		a.click();
+		URL.revokeObjectURL(url);
+		setToast("Backup downloaded");
+	}
 
-  function submitImport(){
-    const parsed=importJSON(importDraft)
-    if(!parsed){setImportError('This is not a valid Wuwiit backup. Check the JSON and try again.');return}
-    const apply=()=>{setState(parsed);setImportOpen(false);setImportDraft('');setToast('Backup imported')}
-    if(state.history.length>0||state.days.length>0){setImportOpen(false);setConfirmation({title:'Replace current data?',description:'Importing this backup will replace your current program, history, weight entries, and settings.',confirmLabel:'Replace and import',danger:true,action:apply})}
-    else apply()
-  }
+	function handleImport() {
+		setImportKind("backup");
+		setImportDraft("");
+		setImportError("");
+		setImportOpen(true);
+	}
 
-  function handleReset(){
-    setConfirmation({title:'Reset all data?',description:'Your program, workout history, weight entries, settings, and active session will be permanently removed.',confirmLabel:'Reset all data',danger:true,action:resetAllData})
-  }
+	function handleImportPlan() {
+		setImportKind("plan");
+		setImportDraft("");
+		setImportError("");
+		setImportOpen(true);
+	}
 
-  function resetAllData(){
-    localStorage.removeItem('wdiit.state.v1')
-    localStorage.removeItem('wdiit.state.v2')
-    localStorage.removeItem(LAST_WORKOUT_DATE_KEY)
-    localStorage.removeItem(ADVANCED_HISTORY_ENTRY_KEY)
-    saveWorkoutSession(null);clearLegacyWorkoutSession()
-    setState(loadState())
-    setWorkoutStartedAt(0)
-    setWorkoutPausedAt(0)
-    setWorkoutPausedTotal(0)
-    setCompletedExerciseIds([])
-    setActiveExerciseId('')
-    setExerciseTimerEnd(0)
-    setLastWorkoutDate('')
-  }
+	function submitImport() {
+		if (importKind === "plan") {
+			const plan = importPlanJSON(importDraft);
+			if (!plan) {
+				setImportError(
+					"This is not a valid Wuwiit workout plan. Check the JSON and try again.",
+				);
+				return;
+			}
+			const apply = () => {
+				setState((prev) => ({ ...prev, ...plan }));
+				setImportOpen(false);
+				setImportDraft("");
+				setWorkoutStartedAt(0);
+				setWorkoutPausedAt(0);
+				setWorkoutPausedTotal(0);
+				setCompletedExerciseIds([]);
+				setActiveExerciseId("");
+				setActiveSet(1);
+				setExerciseTimerEnd(0);
+				setRestTimerEnd(0);
+				setPendingRest(null);
+				setRatingExerciseId(null);
+				setWarmupStage(null);
+				setWarmupAreas([]);
+				setCompletedWarmupSteps([]);
+				saveWorkoutSession(null);
+				setToast("Workout plan imported");
+			};
+			setImportOpen(false);
+			setConfirmation({
+				title: "Replace current workout plan?",
+				description:
+					"Your days, exercises, muscle groups, and warmups will be replaced. Workout history, weight entries, and settings will stay unchanged.",
+				confirmLabel: "Replace plan",
+				danger: true,
+				action: apply,
+			});
+			return;
+		}
+		const parsed = importJSON(importDraft);
+		if (!parsed) {
+			setImportError(
+				"This is not a valid Wuwiit backup. Check the JSON and try again.",
+			);
+			return;
+		}
+		const apply = () => {
+			setState(parsed);
+			setImportOpen(false);
+			setImportDraft("");
+			setToast("Backup imported");
+		};
+		if (state.history.length > 0 || state.days.length > 0) {
+			setImportOpen(false);
+			setConfirmation({
+				title: "Replace current data?",
+				description:
+					"Importing this backup will replace your current program, history, weight entries, and settings.",
+				confirmLabel: "Replace and import",
+				danger: true,
+				action: apply,
+			});
+		} else apply();
+	}
 
-  function handleResetHistory(){
-    setConfirmation({title:'Reset workout history?',description:'All completed workout records and streak progress will be permanently removed. Your program will remain unchanged.',confirmLabel:'Reset history',danger:true,action:()=>setState(prev=>({...prev,history:[]}))})
-  }
+	function handleReset() {
+		setConfirmation({
+			title: "Reset all data?",
+			description:
+				"Your program, workout history, weight entries, settings, and active session will be permanently removed.",
+			confirmLabel: "Reset all data",
+			danger: true,
+			action: resetAllData,
+		});
+	}
 
-  function handleLogWeight(weight:number,date=localDateString()){
-    setState(prev=>({...prev,weightTracking:{...prev.weightTracking,entries:[
-      {id:`weight-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,7)}`,date,weight:Math.round(weight*10)/10},
-      ...prev.weightTracking.entries.filter(entry=>entry.date!==date)
-    ].sort((a,b)=>b.date.localeCompare(a.date))}}))
-  }
+	function resetAllData() {
+		localStorage.removeItem("wdiit.state.v1");
+		localStorage.removeItem("wdiit.state.v2");
+		localStorage.removeItem(LAST_WORKOUT_DATE_KEY);
+		localStorage.removeItem(ADVANCED_HISTORY_ENTRY_KEY);
+		saveWorkoutSession(null);
+		clearLegacyWorkoutSession();
+		setState(loadState());
+		setWorkoutStartedAt(0);
+		setWorkoutPausedAt(0);
+		setWorkoutPausedTotal(0);
+		setCompletedExerciseIds([]);
+		setActiveExerciseId("");
+		setExerciseTimerEnd(0);
+		setLastWorkoutDate("");
+	}
 
-  useEffect(()=>{
-    const action=new URLSearchParams(location.search).get('action')
-    if(!action)return
-    history.replaceState(null,'',location.pathname)
-    setView('home')
-    if(action==='weigh-in')window.setTimeout(()=>openWeightDialog(),100)
-  },[])
+	function handleResetHistory() {
+		setConfirmation({
+			title: "Reset workout history?",
+			description:
+				"All completed workout records and streak progress will be permanently removed. Your program will remain unchanged.",
+			confirmLabel: "Reset history",
+			danger: true,
+			action: () => setState((prev) => ({ ...prev, history: [] })),
+		});
+	}
 
-  useEffect(()=>{
-    const ready=(event:Event)=>{const update=(event as CustomEvent<{update:()=>void}>).detail.update;setConfirmation({title:'Update Wuwiit?',description:'A new version is ready. Updating now will reload the app.',confirmLabel:'Update now',action:update})}
-    window.addEventListener('wuwiit:update-ready',ready);return()=>window.removeEventListener('wuwiit:update-ready',ready)
-  },[])
+	function handleLogWeight(weight: number, date = localDateString()) {
+		setState((prev) => ({
+			...prev,
+			weightTracking: {
+				...prev.weightTracking,
+				entries: [
+					{
+						id: `weight-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
+						date,
+						weight: Math.round(weight * 10) / 10,
+					},
+					...prev.weightTracking.entries.filter((entry) => entry.date !== date),
+				].sort((a, b) => b.date.localeCompare(a.date)),
+			},
+		}));
+	}
 
-  function openWeightDialog(){setWeightDraft(state.weightTracking.entries[0]?String(state.weightTracking.entries[0].weight):'');setWeightError('');setWeightOpen(true)}
-  function submitWeight(event:React.FormEvent){event.preventDefault();const value=Number(weightDraft);if(!Number.isFinite(value)||value<=0||value>1000){setWeightError('Enter a weight between 0 and 1000 kg.');return}handleLogWeight(value);setWeightOpen(false);setToast('Weight logged')}
+	useEffect(() => {
+		const action = new URLSearchParams(location.search).get("action");
+		if (!action) return;
+		history.replaceState(null, "", location.pathname);
+		setView("home");
+		if (action === "weigh-in") window.setTimeout(() => openWeightDialog(), 100);
+	}, []);
 
-  function handleDeleteWeight(id:string){
-    setState(prev=>({...prev,weightTracking:{...prev.weightTracking,entries:prev.weightTracking.entries.filter(entry=>entry.id!==id)}}))
-  }
+	useEffect(() => {
+		const ready = (event: Event) => {
+			const update = (event as CustomEvent<{ update: () => void }>).detail
+				.update;
+			setConfirmation({
+				title: "Update Wuwiit?",
+				description:
+					"A new version is ready. Updating now will reload the app.",
+				confirmLabel: "Update now",
+				action: update,
+			});
+		};
+		window.addEventListener("wuwiit:update-ready", ready);
+		return () => window.removeEventListener("wuwiit:update-ready", ready);
+	}, []);
 
-  function handleDeleteWorkout(id:string){
-    setState(prev=>({...prev,history:prev.history.filter(entry=>entry.id!==id)}))
-  }
+	function openWeightDialog() {
+		setWeightDraft(
+			state.weightTracking.entries[0]
+				? String(state.weightTracking.entries[0].weight)
+				: "",
+		);
+		setWeightError("");
+		setWeightOpen(true);
+	}
+	function submitWeight(event: React.FormEvent) {
+		event.preventDefault();
+		const value = Number(weightDraft);
+		if (!Number.isFinite(value) || value <= 0 || value > 1000) {
+			setWeightError("Enter a weight between 0 and 1000 kg.");
+			return;
+		}
+		handleLogWeight(value);
+		setWeightOpen(false);
+		setToast("Weight logged");
+	}
 
-  return (
-    <div className="min-h-screen bg-white dark:bg-black">
-      <div className="w-full max-w-md mx-auto min-h-screen flex flex-col p-4">
-        <header className="mb-4 flex items-center justify-between">
-          <button className="text-left" onClick={()=>setView('home')} aria-label="Go to home">
-            <h1 className="text-xl font-medium text-black dark:text-white brand-logo">Wuwiit</h1>
-            <div className="text-[10px] uppercase text-black/60 dark:text-white/60">What workout is it today?</div>
-          </button>
+	function handleDeleteWeight(id: string) {
+		setState((prev) => ({
+			...prev,
+			weightTracking: {
+				...prev.weightTracking,
+				entries: prev.weightTracking.entries.filter((entry) => entry.id !== id),
+			},
+		}));
+	}
 
-          <div className="flex items-center gap-1.5">
-            <button
-              className={`p-2 rounded-md border ${view==='edit' ? 'bg-black text-white border-black dark:bg-white dark:text-black dark:border-white' : 'border-black/20 dark:border-white/30 bg-white dark:bg-black text-black dark:text-white'}`}
-              onClick={()=>setView('edit')}
-              aria-label="Program"
-              title="Program"
-            >
-              <ListTree size={18} strokeWidth={1.8} />
-            </button>
-            <button
-              className={`p-2 rounded-md border ${view==='history' ? 'bg-black text-white border-black dark:bg-white dark:text-black dark:border-white' : 'border-black/20 dark:border-white/30 bg-white dark:bg-black text-black dark:text-white'}`}
-              onClick={()=>setView('history')}
-              aria-label="History"
-              title="History"
-            >
-              <HistoryIcon size={18} strokeWidth={1.8} />
-            </button>
-            <button
-              className={`p-2 rounded-md border ${view==='settings' ? 'bg-black text-white border-black dark:bg-white dark:text-black dark:border-white' : 'border-black/20 dark:border-white/30 bg-white dark:bg-black text-black dark:text-white'}`}
-              onClick={()=>setView('settings')}
-              aria-label="Settings"
-              title="Settings"
-            >
-              <SettingsIcon size={18} strokeWidth={1.8} />
-            </button>
-          </div>
-        </header>
+	function handleDeleteWorkout(id: string) {
+		setState((prev) => ({
+			...prev,
+			history: prev.history.filter((entry) => entry.id !== id),
+		}));
+	}
 
-        <main className="flex-1">
-          {view==='home' && (
-            <Home
-              state={state}
-              onStartWorkout={handleStartWorkout}
-              onDoTomorrow={handleDoTomorrow}
-              onFinishWorkout={handleFinishWorkout}
-              onEndWorkout={handleEndWorkout}
-              isWorkoutActive={isWorkoutActive}
-              elapsedWorkoutSeconds={elapsedWorkoutSeconds}
-              isWorkoutPaused={isWorkoutPaused}
-              onToggleWorkoutPause={handleToggleWorkoutPause}
-              exerciseSecondsRemaining={exerciseSecondsRemaining}
-              restSecondsRemaining={restSecondsRemaining}
-              isResting={Boolean(pendingRest)}
-              restNextExerciseId={pendingRest?.exerciseId||''}
-              onSkipRest={finishRest}
-              onExtendRest={extendRest}
-              onToggleRestSound={()=>setState(prev=>({...prev,restTimerSound:!prev.restTimerSound}))}
-              onToggleRestVibration={()=>setState(prev=>({...prev,restTimerVibration:!prev.restTimerVibration}))}
-              activeExerciseId={activeExerciseId}
-              activeSet={activeSet}
-              completedExerciseIds={completedExerciseIds}
-              onSelectExercise={startExercise}
-              ratingExerciseId={ratingExerciseId}
-              onCompleteExercise={handleCompleteExercise}
-              onRateExercise={handleExerciseRating}
-              lastWorkoutDate={lastWorkoutDate}
-              completedToday={!showNextWorkoutToday&&state.history[0]?.date===localDateString()?state.history[0]:undefined}
-              onStartNextWorkoutToday={handleStartNextWorkoutToday}
-              onRequestWeight={openWeightDialog}
-            />
-          )}
-          {view==='edit' && (
-            <QueueEditor
-              state={state}
-              onSave={handleSaveProgram}
-              templateDraftItems={templateDraftItems}
-              templateDraftToken={templateDraftToken}
-              onTemplateDraftApplied={()=>setTemplateDraftItems(null)}
-            />
-          )}
-          {view==='history' && <History state={state} lastWorkoutDate={lastWorkoutDate} onLogWeight={handleLogWeight} onDeleteWeight={handleDeleteWeight} onDeleteWorkout={handleDeleteWorkout} onGoHome={()=>setView('home')} />}
+	return (
+		<div className="min-h-screen bg-white dark:bg-black">
+			<div className="w-full max-w-md mx-auto min-h-screen flex flex-col p-4">
+				<header className="mb-4 flex items-center justify-between">
+					<button
+						className="text-left"
+						onClick={() => setView("home")}
+						aria-label="Go to home"
+					>
+						<h1 className="text-xl font-medium text-black dark:text-white brand-logo">
+							Wuwiit
+						</h1>
+						<div className="text-[10px] uppercase text-black/60 dark:text-white/60">
+							What workout is it today?
+						</div>
+					</button>
 
-          {view==='settings' && (
-            <Settings
-              onOpenTemplates={()=>setIsTemplateModalOpen(true)}
-              onExportClipboard={handleExportClipboard}
-              onImport={handleImport}
-              onResetHistory={handleResetHistory}
-              onReset={handleReset}
-              isTemplateModalOpen={isTemplateModalOpen}
-              onCloseTemplateModal={()=>setIsTemplateModalOpen(false)}
-              onUseTemplate={handleUseTemplate}
-              themePref={themePref}
-              onCycleTheme={()=>{
-                const next = themePref === 'system' ? 'dark' : themePref === 'dark' ? 'light' : 'system'
-                setThemePref(next as ThemePref)
-                if(next === 'system') localStorage.removeItem(THEME_KEY)
-                else localStorage.setItem(THEME_KEY, next)
-              }}
-              weightTrackingEnabled={state.weightTracking.enabled}
-              onToggleWeightTracking={()=>setState(prev=>({...prev,weightTracking:{...prev.weightTracking,enabled:!prev.weightTracking.enabled}}))}
-              weeklyWorkoutGoal={state.weeklyWorkoutGoal}
-              onWeeklyWorkoutGoalChange={weeklyWorkoutGoal=>setState(prev=>({...prev,weeklyWorkoutGoal}))}
-              restSeconds={state.restSeconds}
-              onRestSecondsChange={restSeconds=>setState(prev=>({...prev,restSeconds}))}
-              reminders={state.reminders}
-              onRemindersChange={reminders=>setState(prev=>({...prev,reminders}))}
-              notificationPermission={notificationPermission}
-              onEnableNotifications={async()=>{const permission=await requestNotifications();setNotificationPermission(permission);if(permission==='granted'){const reminders={...state.reminders,enabled:true};setState(prev=>({...prev,reminders}));void syncPushSubscription(reminders).catch(()=>{})}}}
-              isInstalled={isStandalone()}
-              canInstall={Boolean(installPrompt)}
-              onInstall={async()=>{if(!installPrompt)return;await (installPrompt as Event&{prompt:()=>Promise<void>}).prompt();setInstallPrompt(null)}}
-            />
-          )}
-        </main>
+					<div className="flex items-center gap-1.5">
+						<button
+							className={`p-2 rounded-md border ${view === "edit" ? "bg-black text-white border-black dark:bg-white dark:text-black dark:border-white" : "border-black/20 dark:border-white/30 bg-white dark:bg-black text-black dark:text-white"}`}
+							onClick={() => setView("edit")}
+							aria-label="Program"
+							title="Program"
+						>
+							<ListTree size={18} strokeWidth={1.8} />
+						</button>
+						<button
+							className={`p-2 rounded-md border ${view === "history" ? "bg-black text-white border-black dark:bg-white dark:text-black dark:border-white" : "border-black/20 dark:border-white/30 bg-white dark:bg-black text-black dark:text-white"}`}
+							onClick={() => setView("history")}
+							aria-label="History"
+							title="History"
+						>
+							<HistoryIcon size={18} strokeWidth={1.8} />
+						</button>
+						<button
+							className={`p-2 rounded-md border ${view === "settings" ? "bg-black text-white border-black dark:bg-white dark:text-black dark:border-white" : "border-black/20 dark:border-white/30 bg-white dark:bg-black text-black dark:text-white"}`}
+							onClick={() => setView("settings")}
+							aria-label="Settings"
+							title="Settings"
+						>
+							<SettingsIcon size={18} strokeWidth={1.8} />
+						</button>
+					</div>
+				</header>
 
-        <footer className="mt-6 text-xs text-black/60 dark:text-white/60 flex items-center justify-center gap-1.5">
-          <span>made with</span>
-          <Dumbbell size={14} className='text-red-900' />
-          <span>by</span>
-          <a
-            href="https://github.com/callmenixsh"
-            target="_blank"
-            rel="noreferrer"
-            className="underline underline-offset-2"
-          >
-            callmenixsh
-          </a>
-        </footer>
+				<main className="flex-1">
+					{view === "home" && (
+						<Home
+							state={state}
+							onStartWorkout={handleStartWorkout}
+							onDoTomorrow={handleDoTomorrow}
+							onFinishWorkout={handleFinishWorkout}
+							onEndWorkout={handleEndWorkout}
+							isWorkoutActive={isWorkoutActive}
+							elapsedWorkoutSeconds={elapsedWorkoutSeconds}
+							isWorkoutPaused={isWorkoutPaused}
+							onToggleWorkoutPause={handleToggleWorkoutPause}
+							exerciseSecondsRemaining={exerciseSecondsRemaining}
+							restSecondsRemaining={restSecondsRemaining}
+							isResting={Boolean(pendingRest)}
+							restNextExerciseId={pendingRest?.exerciseId || ""}
+							onSkipRest={finishRest}
+							onExtendRest={extendRest}
+							onToggleRestSound={() =>
+								setState((prev) => ({
+									...prev,
+									restTimerSound: !prev.restTimerSound,
+								}))
+							}
+							onToggleRestVibration={() =>
+								setState((prev) => ({
+									...prev,
+									restTimerVibration: !prev.restTimerVibration,
+								}))
+							}
+							activeExerciseId={activeExerciseId}
+							activeSet={activeSet}
+							completedExerciseIds={completedExerciseIds}
+							onSelectExercise={startExercise}
+							ratingExerciseId={ratingExerciseId}
+							onCompleteExercise={handleCompleteExercise}
+							onRateExercise={handleExerciseRating}
+							lastWorkoutDate={lastWorkoutDate}
+							completedToday={
+								!showNextWorkoutToday &&
+								state.history[0]?.date === localDateString()
+									? state.history[0]
+									: undefined
+							}
+							onStartNextWorkoutToday={handleStartNextWorkoutToday}
+							onRequestWeight={openWeightDialog}
+							warmupStage={warmupStage}
+							warmupAreas={warmupAreas}
+							completedWarmupSteps={completedWarmupSteps}
+							onToggleWarmupStep={(index) =>
+								setCompletedWarmupSteps((steps) =>
+									steps.includes(index)
+										? steps.filter((step) => step !== index)
+										: [...steps, index],
+								)
+							}
+							onChooseWarmup={() => setWarmupStage("areas")}
+							onToggleWarmupArea={(area) =>
+								setWarmupAreas((areas) =>
+									areas.includes(area)
+										? areas.filter((value) => value !== area)
+										: [...areas, area],
+								)
+							}
+							onShowWarmupSteps={() => setWarmupStage("steps")}
+							onBeginExercises={beginExercises}
+						/>
+					)}
+					{view === "edit" && (
+						<QueueEditor
+							state={state}
+							onSave={handleSaveProgram}
+							templateDraftItems={templateDraftItems}
+							templateDraftToken={templateDraftToken}
+							onTemplateDraftApplied={() => setTemplateDraftItems(null)}
+						/>
+					)}
+					{view === "history" && (
+						<History
+							state={state}
+							lastWorkoutDate={lastWorkoutDate}
+							onLogWeight={handleLogWeight}
+							onDeleteWeight={handleDeleteWeight}
+							onDeleteWorkout={handleDeleteWorkout}
+							onGoHome={() => setView("home")}
+						/>
+					)}
 
-      </div>
-      <Modal open={Boolean(confirmation)} title={confirmation?.title||''} description={confirmation?.description} onClose={()=>setConfirmation(null)}><DialogActions><button className={secondaryButton} onClick={()=>setConfirmation(null)}>Keep current data</button><button className={confirmation?.danger?dangerButton:primaryButton} onClick={()=>{const action=confirmation?.action;setConfirmation(null);action?.()}}>{confirmation?.confirmLabel}</button></DialogActions></Modal>
-      <Modal open={importOpen} title="Import backup" description="Paste the contents of a Wuwiit JSON backup below." onClose={()=>setImportOpen(false)}><textarea autoFocus value={importDraft} onChange={event=>{setImportDraft(event.target.value);setImportError('')}} aria-label="Backup JSON" className="min-h-44 w-full resize-y rounded-xl border border-black/15 bg-black/[.025] p-3 font-mono text-xs outline-none focus:border-black dark:border-white/20 dark:bg-white/[.05] dark:focus:border-white" placeholder="Paste backup JSON…"/>{importError&&<p className="mt-2 text-sm text-red-600 dark:text-red-400" role="alert">{importError}</p>}<div className="mt-4"><DialogActions><button className={secondaryButton} onClick={()=>setImportOpen(false)}>Cancel</button><button className={primaryButton} disabled={!importDraft.trim()} onClick={submitImport}>Review import</button></DialogActions></div></Modal>
-      <Modal open={weightOpen} title="Log weight" description="Add your current weight to your progress history." onClose={()=>setWeightOpen(false)}><form onSubmit={submitWeight}><label className="block text-xs font-semibold uppercase tracking-wider text-black/50 dark:text-white/50">Weight (kg)<input autoFocus type="number" min="0.1" max="1000" step="0.1" value={weightDraft} onChange={event=>{setWeightDraft(event.target.value);setWeightError('')}} className="mt-2 min-h-12 w-full rounded-xl border border-black/15 bg-white px-3 text-lg outline-none focus:border-black dark:border-white/20 dark:bg-black dark:focus:border-white"/></label>{weightError&&<p className="mt-2 text-sm text-red-600 dark:text-red-400" role="alert">{weightError}</p>}<div className="mt-5"><DialogActions><button type="button" className={secondaryButton} onClick={()=>setWeightOpen(false)}>Cancel</button><button className={primaryButton}>Save weight</button></DialogActions></div></form></Modal>
-      {toast&&<Toast message={toast} onClose={()=>setToast('')}/>} 
-    </div>
-  )
+					{view === "settings" && (
+						<Settings
+							onOpenTemplates={() => setIsTemplateModalOpen(true)}
+							onExportPlan={handleExportPlan}
+							onImportPlan={handleImportPlan}
+							onExportBackup={handleExportBackup}
+							onImport={handleImport}
+							onResetHistory={handleResetHistory}
+							onReset={handleReset}
+							isTemplateModalOpen={isTemplateModalOpen}
+							onCloseTemplateModal={() => setIsTemplateModalOpen(false)}
+							onUseTemplate={handleUseTemplate}
+							themePref={themePref}
+							onCycleTheme={() => {
+								const next =
+									themePref === "system"
+										? "dark"
+										: themePref === "dark"
+											? "light"
+											: "system";
+								setThemePref(next as ThemePref);
+								if (next === "system") localStorage.removeItem(THEME_KEY);
+								else localStorage.setItem(THEME_KEY, next);
+							}}
+							weightTrackingEnabled={state.weightTracking.enabled}
+							onToggleWeightTracking={() =>
+								setState((prev) => ({
+									...prev,
+									weightTracking: {
+										...prev.weightTracking,
+										enabled: !prev.weightTracking.enabled,
+									},
+								}))
+							}
+							weeklyWorkoutGoal={state.weeklyWorkoutGoal}
+							onWeeklyWorkoutGoalChange={(weeklyWorkoutGoal) =>
+								setState((prev) => ({ ...prev, weeklyWorkoutGoal }))
+							}
+							restSeconds={state.restSeconds}
+							onRestSecondsChange={(restSeconds) =>
+								setState((prev) => ({ ...prev, restSeconds }))
+							}
+							reminders={state.reminders}
+							onRemindersChange={(reminders) =>
+								setState((prev) => ({ ...prev, reminders }))
+							}
+							notificationPermission={notificationPermission}
+							onEnableNotifications={async () => {
+								const permission = await requestNotifications();
+								setNotificationPermission(permission);
+								if (permission === "granted") {
+									const reminders = { ...state.reminders, enabled: true };
+									setState((prev) => ({ ...prev, reminders }));
+									void syncPushSubscription(reminders).catch(() => {});
+								}
+							}}
+							isInstalled={isStandalone()}
+							canInstall={Boolean(installPrompt)}
+							onInstall={async () => {
+								if (!installPrompt) return;
+								await (
+									installPrompt as Event & { prompt: () => Promise<void> }
+								).prompt();
+								setInstallPrompt(null);
+							}}
+						/>
+					)}
+				</main>
+
+				<footer className="mt-6 text-xs text-black/60 dark:text-white/60 flex items-center justify-center gap-1.5">
+					<span>made with</span>
+					<Dumbbell size={14} className="text-red-900" />
+					<span>by</span>
+					<a
+						href="https://github.com/callmenixsh"
+						target="_blank"
+						rel="noreferrer"
+						className="underline underline-offset-2"
+					>
+						callmenixsh
+					</a>
+				</footer>
+			</div>
+			<Modal
+				open={Boolean(confirmation)}
+				title={confirmation?.title || ""}
+				description={confirmation?.description}
+				onClose={() => setConfirmation(null)}
+			>
+				<DialogActions>
+					<button
+						className={secondaryButton}
+						onClick={() => setConfirmation(null)}
+					>
+						Keep current data
+					</button>
+					<button
+						className={confirmation?.danger ? dangerButton : primaryButton}
+						onClick={() => {
+							const action = confirmation?.action;
+							setConfirmation(null);
+							action?.();
+						}}
+					>
+						{confirmation?.confirmLabel}
+					</button>
+				</DialogActions>
+			</Modal>
+			<Modal
+				open={importOpen}
+				title={importKind === "plan" ? "Import workout plan" : "Import backup"}
+				description={
+					importKind === "plan"
+						? "Choose a Wuwiit workout plan JSON file or paste its contents. Your progress and settings will be kept."
+						: "Choose a Wuwiit backup JSON file or paste its contents."
+				}
+				onClose={() => setImportOpen(false)}
+			>
+				<label className="mb-3 flex min-h-11 cursor-pointer items-center justify-center rounded-xl border border-black/15 text-sm font-semibold dark:border-white/20">
+					Choose JSON file
+					<input
+						type="file"
+						accept="application/json,.json"
+						className="sr-only"
+						onChange={async (event) => {
+							const file = event.target.files?.[0];
+							if (!file) return;
+							try {
+								setImportDraft(await file.text());
+								setImportError("");
+							} catch {
+								setImportError("That file could not be read.");
+							}
+						}}
+					/>
+				</label>
+				<textarea
+					value={importDraft}
+					onChange={(event) => {
+						setImportDraft(event.target.value);
+						setImportError("");
+					}}
+					aria-label={
+						importKind === "plan" ? "Workout plan JSON" : "Backup JSON"
+					}
+					className="min-h-44 w-full resize-y rounded-xl border border-black/15 bg-black/[.025] p-3 font-mono text-xs outline-none focus:border-black dark:border-white/20 dark:bg-white/[.05] dark:focus:border-white"
+					placeholder="Or paste JSON here…"
+				/>
+				{importError && (
+					<p
+						className="mt-2 text-sm text-red-600 dark:text-red-400"
+						role="alert"
+					>
+						{importError}
+					</p>
+				)}
+				<div className="mt-4">
+					<DialogActions>
+						<button
+							className={secondaryButton}
+							onClick={() => setImportOpen(false)}
+						>
+							Cancel
+						</button>
+						<button
+							className={primaryButton}
+							disabled={!importDraft.trim()}
+							onClick={submitImport}
+						>
+							Review import
+						</button>
+					</DialogActions>
+				</div>
+			</Modal>
+			<Modal
+				open={weightOpen}
+				title="Log weight"
+				description="Add your current weight to your progress history."
+				onClose={() => setWeightOpen(false)}
+			>
+				<form onSubmit={submitWeight}>
+					<label className="block text-xs font-semibold uppercase tracking-wider text-black/50 dark:text-white/50">
+						Weight (kg)
+						<input
+							autoFocus
+							type="number"
+							min="0.1"
+							max="1000"
+							step="0.1"
+							value={weightDraft}
+							onChange={(event) => {
+								setWeightDraft(event.target.value);
+								setWeightError("");
+							}}
+							className="mt-2 min-h-12 w-full rounded-xl border border-black/15 bg-white px-3 text-lg outline-none focus:border-black dark:border-white/20 dark:bg-black dark:focus:border-white"
+						/>
+					</label>
+					{weightError && (
+						<p
+							className="mt-2 text-sm text-red-600 dark:text-red-400"
+							role="alert"
+						>
+							{weightError}
+						</p>
+					)}
+					<div className="mt-5">
+						<DialogActions>
+							<button
+								type="button"
+								className={secondaryButton}
+								onClick={() => setWeightOpen(false)}
+							>
+								Cancel
+							</button>
+							<button className={primaryButton}>Save weight</button>
+						</DialogActions>
+					</div>
+				</form>
+			</Modal>
+			{toast && <Toast message={toast} onClose={() => setToast("")} />}
+		</div>
+	);
 }

@@ -1,85 +1,99 @@
 <!doctype html>
 <html>
-  <head>
-    <meta charset="utf-8" />
-    <link rel="icon" type="image/png" href="/wuwiit.png">
-    <link rel="manifest" href="/manifest.webmanifest" />
-    <link rel="apple-touch-icon" href="/icons/icon-192.png" />
-    <meta name="theme-color" content="#000000" />
-    <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <script>
-      (function(){
-        try{
-          var t = localStorage.getItem('wusiit.theme')
-          var dark = t === 'dark' || (t !== 'light' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches)
-          if(dark) document.documentElement.classList.add('dark')
-        }catch(e){
-          try{
-            if(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) document.documentElement.classList.add('dark')
-          }catch(_){}
-        }
-      })();
-    </script>
-    <meta name="description" content="Wuwiit — a local-first workout planner that answers: What workout is it today?" />
-    <title>Wuwiit — What Workout Is It Today?</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-<script type="module">
-(function() {
-  const SITE_ID = 'Wuwiit';
-  const SITE_URL = 'https://wusiit.netlify.app/';
-  const COOLDOWN_MS = 2000;
+	<head>
+		<meta charset="utf-8" />
+		<link rel="icon" type="image/png" href="/wuwiit.png" />
+		<link rel="manifest" href="/manifest.webmanifest" />
+		<link rel="apple-touch-icon" href="/icons/icon-192.png" />
+		<meta name="theme-color" content="#000000" />
+		<meta name="apple-mobile-web-app-capable" content="yes" />
+		<meta
+			name="apple-mobile-web-app-status-bar-style"
+			content="black-translucent"
+		/>
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<script>
+			(function () {
+				try {
+					var t = localStorage.getItem("wusiit.theme");
+					var dark =
+						t === "dark" ||
+						(t !== "light" &&
+							window.matchMedia &&
+							window.matchMedia("(prefers-color-scheme: dark)").matches);
+					if (dark) document.documentElement.classList.add("dark");
+				} catch (e) {
+					try {
+						if (
+							window.matchMedia &&
+							window.matchMedia("(prefers-color-scheme: dark)").matches
+						)
+							document.documentElement.classList.add("dark");
+					} catch (_) {}
+				}
+			})();
+		</script>
+		<meta
+			name="description"
+			content="Wuwiit — a local-first workout planner that answers: What workout is it today?"
+		/>
+		<title>Wuwiit — What Workout Is It Today?</title>
+	</head>
+	<body>
+		<div id="root"></div>
+		<script type="module" src="/src/main.tsx"></script>
+		<script type="module">
+			(function () {
+				const SITE_ID = "Wuwiit";
+				const SITE_URL = "https://wusiit.netlify.app/";
+				const COOLDOWN_MS = 2000;
 
-  const createVisitorId = () => {
-    if (window.crypto && typeof window.crypto.randomUUID === 'function') {
-      return window.crypto.randomUUID();
-    }
-    return 'v_' + Date.now() + '_' + Math.random().toString(36).slice(2);
-  };
+				const createVisitorId = () => {
+					if (window.crypto && typeof window.crypto.randomUUID === "function") {
+						return window.crypto.randomUUID();
+					}
+					return "v_" + Date.now() + "_" + Math.random().toString(36).slice(2);
+				};
 
-  const getVisitorId = () => {
-    try {
-      const key = 'visteria_vid_' + SITE_ID;
-      const existing = localStorage.getItem(key);
-      if (existing) return existing;
-      const created = createVisitorId();
-      localStorage.setItem(key, created);
-      return created;
-    } catch {
-      return createVisitorId();
-    }
-  };
-  
-  const lastTracked = sessionStorage.getItem('visteria_last_' + SITE_ID);
-  const now = Date.now();
-  
-  // Don't track if recently tracked (within cooldown)
-  if (lastTracked && now - parseInt(lastTracked) < COOLDOWN_MS) return;
-  
-  // Don't track if page is hidden
-  if (document.hidden) return;
-  
-  sessionStorage.setItem('visteria_last_' + SITE_ID, now.toString());
-  
-  fetch('https://visteria.vercel.app/api/visits/track', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      siteId: SITE_ID,
-      siteUrl: SITE_URL,
-      visitorId: getVisitorId(),
-      url: location.href,
-      referrer: document.referrer,
-      userAgent: navigator.userAgent,
-      visitedAt: new Date().toISOString()
-    }),
-    keepalive: true
-  }).catch(() => {});
-})();
-</script>
-  </body>
-  </html>
+				const getVisitorId = () => {
+					try {
+						const key = "visteria_vid_" + SITE_ID;
+						const existing = localStorage.getItem(key);
+						if (existing) return existing;
+						const created = createVisitorId();
+						localStorage.setItem(key, created);
+						return created;
+					} catch {
+						return createVisitorId();
+					}
+				};
+
+				const lastTracked = sessionStorage.getItem("visteria_last_" + SITE_ID);
+				const now = Date.now();
+
+				// Don't track if recently tracked (within cooldown)
+				if (lastTracked && now - parseInt(lastTracked) < COOLDOWN_MS) return;
+
+				// Don't track if page is hidden
+				if (document.hidden) return;
+
+				sessionStorage.setItem("visteria_last_" + SITE_ID, now.toString());
+
+				fetch("https://visteria.vercel.app/api/visits/track", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({
+						siteId: SITE_ID,
+						siteUrl: SITE_URL,
+						visitorId: getVisitorId(),
+						url: location.href,
+						referrer: document.referrer,
+						userAgent: navigator.userAgent,
+						visitedAt: new Date().toISOString(),
+					}),
+					keepalive: true,
+				}).catch(() => {});
+			})();
+		</script>
+	</body>
+</html>

@@ -13,6 +13,9 @@ export type WorkoutSession = {
   restTimerEnd: number
   pendingRest: PendingRest|null
   feedbackCounts: FeedbackCounts
+  warmupStage: 'choice'|'areas'|'steps'|null
+  warmupAreas: string[]
+  completedWarmupSteps: number[]
 }
 
 const KEY='wusiit.workout.session.v1'
@@ -28,6 +31,8 @@ export function loadWorkoutSession():WorkoutSession|null{
       exerciseTimerEnd:Number(value.exerciseTimerEnd)||0,restTimerEnd:Number(value.restTimerEnd)||0,
       pendingRest:value.pendingRest&&typeof value.pendingRest.exerciseId==='string'?value.pendingRest as PendingRest:null,
       feedbackCounts:{hard:Number(value.feedbackCounts?.hard)||0,right:Number(value.feedbackCounts?.right)||0,easy:Number(value.feedbackCounts?.easy)||0},
+      warmupStage:value.warmupStage==='choice'||value.warmupStage==='areas'||value.warmupStage==='steps'?value.warmupStage:null,
+      warmupAreas:Array.isArray(value.warmupAreas)?value.warmupAreas.filter((area):area is string=>typeof area==='string'):[],completedWarmupSteps:Array.isArray(value.completedWarmupSteps)?value.completedWarmupSteps.map(Number).filter(Number.isInteger):[],
     }
   }catch{return null}
 }

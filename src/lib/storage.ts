@@ -1,6 +1,29 @@
+import type { WarmupStep } from './warmup'
+
 export type Exercise = { id:string; name:string; instructions?:string; commonMistakes?:string; equipment?:string; sets?:number; reps?:string; tracking?:'reps'|'timed'; durationSeconds?:number; muscleGroupIds?:string[] }
 export type MuscleGroup = { id:string; name:string; exerciseIds:string[] }
-export type PlanDay = { id:string; name:string; exerciseIds:string[]; muscleGroupIds?:string[]; isRestDay?:boolean }
+export type PlanDay = { id:string; name:string; exerciseIds:string[]; muscleGroupIds?:string[]; isRestDay?:boolean; warmup?:WarmupStep[] }
+const warmupOf=(value:unknown):WarmupStep[]=>{
+  if(!Array.isArray(value))return []
+  const steps:WarmupStep[]=[]
+  value.forEach(entry=>{
+    if(steps.length>=12)return
+    if(typeof entry==='string'){
+      const name=entry.trim()
+      if(name)steps.push({name,amount:'',detail:''})
+      return
+    }
+    if(!entry||typeof entry!=='object')return
+    const step=entry as Record<string,unknown>
+    const name=typeof step.name==='string'?step.name.trim():''
+    if(!name)return
+    const amount=typeof step.amount==='string'?step.amount.trim():''
+    const detail=typeof step.detail==='string'?step.detail.trim():''
+    steps.push({name,amount,detail})
+  })
+  return steps
+}
+
 export type WorkoutRating = 'challenging'|'balanced'|'easy'
 export type ExercisePerformance = { exerciseId:string; exerciseName:string; set:number; reps?:number; weight?:number; durationSeconds?:number }
 export type DayEntry = { id?:string; date:string; completedAt?:string; label:string; description?:string; durationSeconds?:number; rating?:WorkoutRating; performances?:ExercisePerformance[] }
@@ -13,6 +36,8 @@ export type ReminderSettings = {
   weighIn:{enabled:boolean;weekday:number;time:string}
 }
 export type AppState = { exercises:Exercise[]; muscleGroups:MuscleGroup[]; days:PlanDay[]; history:DayEntry[]; weightTracking:WeightTracking; weeklyWorkoutGoal:number; restSeconds:number; restTimerSound:boolean; restTimerVibration:boolean; reminders:ReminderSettings }
+export type WorkoutPlan = Pick<AppState,'exercises'|'muscleGroups'|'days'>
+type WorkoutPlanFile = {format:'wuwiit-workout-plan';version:1;plan:WorkoutPlan}
 
 export const STANDARD_MUSCLE_GROUPS=[
   {id:'group-chest',name:'Chest'},
@@ -148,7 +173,7 @@ function normalize(value:unknown):AppState{
   const groupIds=new Set(muscleGroups.map(x=>x.id))
   exercises=exercises.map(ex=>({...ex,muscleGroupIds:[...new Set([...(ex.muscleGroupIds||[]).filter(id=>groupIds.has(id)),...muscleGroups.filter(group=>group.exerciseIds.includes(ex.id)).map(group=>group.id)])]}))
   muscleGroups.forEach(group=>group.exerciseIds=exercises.filter(ex=>ex.muscleGroupIds?.includes(group.id)).map(ex=>ex.id))
-  const days=raw.days.flatMap((v):PlanDay[]=>{if(!v||typeof v!=='object')return[];const x=v as Record<string,unknown>;if(typeof x.id!=='string'||typeof x.name!=='string'||!x.name.trim())return[];const legacyGroupIds=Array.isArray(x.muscleGroupIds)?x.muscleGroupIds.filter((id):id is string=>typeof id==='string'&&groupIds.has(id)):[];const directIds=Array.isArray(x.exerciseIds)?x.exerciseIds.filter((id):id is string=>typeof id==='string'&&exIds.has(id)):[];const exerciseIds=directIds.length||Array.isArray(x.exerciseIds)?directIds:[...new Set(legacyGroupIds.flatMap(id=>muscleGroups.find(group=>group.id===id)?.exerciseIds||[]))];return[{id:x.id,name:x.name.trim(),exerciseIds,...(legacyGroupIds.length?{muscleGroupIds:legacyGroupIds}:{}),...(x.isRestDay===true?{isRestDay:true}:{})}]})
+  const days=raw.days.flatMap((v):PlanDay[]=>{if(!v||typeof v!=='object')return[];const x=v as Record<string,unknown>;if(typeof x.id!=='string'||typeof x.name!=='string'||!x.name.trim())return[];const legacyGroupIds=Array.isArray(x.muscleGroupIds)?x.muscleGroupIds.filter((id):id is string=>typeof id==='string'&&groupIds.has(id)):[];const directIds=Array.isArray(x.exerciseIds)?x.exerciseIds.filter((id):id is string=>typeof id==='string'&&exIds.has(id)):[];const exerciseIds=directIds.length||Array.isArray(x.exerciseIds)?directIds:[...new Set(legacyGroupIds.flatMap(id=>muscleGroups.find(group=>group.id===id)?.exerciseIds||[]))];const warmup=warmupOf(x.warmup);return[{id:x.id,name:x.name.trim(),exerciseIds,...(legacyGroupIds.length?{muscleGroupIds:legacyGroupIds}:{}),...(x.isRestDay===true?{isRestDay:true}:{}),...(warmup.length?{warmup}:{})}]})
   return {exercises,muscleGroups,days,history:historyOf(raw.history),weightTracking:weightTrackingOf(raw.weightTracking),weeklyWorkoutGoal:weeklyWorkoutGoalOf(raw.weeklyWorkoutGoal),restSeconds:restSecondsOf(raw.restSeconds),restTimerSound:raw.restTimerSound!==false,restTimerVibration:raw.restTimerVibration!==false,reminders:remindersOf(raw.reminders)}
 }
 
@@ -156,3 +181,25 @@ export function loadState():AppState{try{const raw=localStorage.getItem(KEY)||lo
 export const saveState=(state:AppState)=>localStorage.setItem(KEY,JSON.stringify(normalize(state)))
 export const exportJSON=(state:AppState)=>JSON.stringify(normalize(state),null,2)
 export function importJSON(json:string):AppState|null{try{return normalize(JSON.parse(json))}catch{return null}}
+
+/** A portable program file. Progress, preferences, and reminders are intentionally excluded. */
+export function exportPlanJSON(state:AppState){
+  const normalized=normalize(state)
+  const file:WorkoutPlanFile={format:'wuwiit-workout-plan',version:1,plan:{exercises:normalized.exercises,muscleGroups:normalized.muscleGroups,days:normalized.days}}
+  return JSON.stringify(file,null,2)
+}
+
+export function importPlanJSON(json:string):WorkoutPlan|null{
+  try{
+    const value:unknown=JSON.parse(json)
+    if(!value||typeof value!=='object')return null
+    const file=value as Record<string,unknown>
+    if(file.format!=='wuwiit-workout-plan'||file.version!==1||!file.plan||typeof file.plan!=='object')return null
+    const plan=file.plan as Record<string,unknown>
+    if(!Array.isArray(plan.exercises)||!Array.isArray(plan.muscleGroups)||!Array.isArray(plan.days))return null
+    const normalized=normalize({...defaultState(),exercises:plan.exercises,muscleGroups:plan.muscleGroups,days:plan.days,history:[]})
+    // Do not silently turn a malformed non-empty plan into an empty one.
+    if((plan.exercises.length&&!normalized.exercises.length)||(plan.days.length&&!normalized.days.length))return null
+    return {exercises:normalized.exercises,muscleGroups:normalized.muscleGroups,days:normalized.days}
+  }catch{return null}
+}

@@ -18,7 +18,7 @@ npm install
 npm run dev
 ```
 
-Data is stored in browser local storage. The settings screen supports JSON backup and restore. Existing v1 split data is migrated automatically into the new relational model.
+Data is stored in browser local storage. The settings screen supports full JSON backup/restore and portable workout-plan import/export. Plan files include every day, exercise, muscle group, rest day, and warmup while leaving workout history and personal settings untouched. Existing v1 split data is migrated automatically into the new relational model.
 
 The production build is an installable PWA and precaches the complete application shell for offline use. Active workout and rest-timer deadlines are persisted, so they recover accurately after the app is suspended or restarted.
 
