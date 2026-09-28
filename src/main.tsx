@@ -5,7 +5,7 @@ import './index.css'
 import { registerSW } from 'virtual:pwa-register'
 
 const updateSW=registerSW({
-  onNeedRefresh(){if(confirm('A new version of Wuwiit is ready. Update now?'))void updateSW(true)},
+  onNeedRefresh(){window.dispatchEvent(new CustomEvent('wuwiit:update-ready',{detail:{update:()=>updateSW(true)}}))},
   onOfflineReady(){console.info('Wuwiit is ready to work offline')},
 })
 

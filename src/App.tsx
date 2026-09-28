@@ -8,13 +8,16 @@ import { loadState, saveState, exportJSON, importJSON, AppState, WorkoutRating }
 import { addHistoryForCurrentDay, advanceToNextDay } from './lib/queue'
 import { localDateString } from './lib/dates'
 import { clearLegacyWorkoutSession, loadWorkoutSession, saveWorkoutSession, PendingRest, FeedbackCounts } from './lib/workoutSession'
-import { isStandalone, notificationStatus, requestNotifications, showSystemNotification, syncPushSubscription, syncRestNotification, NotificationStatus } from './lib/notifications'
+import { isStandalone, notificationStatus, requestNotifications, syncPushSubscription, NotificationStatus } from './lib/notifications'
+import Modal, { dangerButton, DialogActions, primaryButton, secondaryButton } from './components/Modal'
+import Toast from './components/Toast'
 
 const THEME_KEY = 'wusiit.theme'
 const LAST_WORKOUT_DATE_KEY = 'wusiit.lastWorkoutDate'
 const ADVANCED_HISTORY_ENTRY_KEY = 'wusiit.workout.advancedHistoryEntry'
 
 type ThemePref = 'system'|'light'|'dark'
+type Confirmation={title:string;description:string;confirmLabel:string;danger?:boolean;action:()=>void}
 
 export default function App(){
   const [restoredSession] = useState(()=>loadWorkoutSession())
@@ -43,6 +46,14 @@ export default function App(){
   const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false)
   const [templateDraftItems, setTemplateDraftItems] = useState<{name:string,description?:string}[] | null>(null)
   const [templateDraftToken, setTemplateDraftToken] = useState(0)
+  const [confirmation,setConfirmation]=useState<Confirmation|null>(null)
+  const [importOpen,setImportOpen]=useState(false)
+  const [importDraft,setImportDraft]=useState('')
+  const [importError,setImportError]=useState('')
+  const [weightOpen,setWeightOpen]=useState(false)
+  const [weightDraft,setWeightDraft]=useState('')
+  const [weightError,setWeightError]=useState('')
+  const [toast,setToast]=useState('')
 
   // apply effective theme
   useEffect(()=>{
@@ -97,7 +108,6 @@ export default function App(){
     return()=>window.removeEventListener('beforeinstallprompt',capture)
   },[])
   useEffect(()=>{if(state.reminders.enabled)void syncPushSubscription(state.reminders).catch(()=>{})},[state.reminders])
-  useEffect(()=>{if(state.reminders.enabled&&state.reminders.restTimer)void syncRestNotification(state.reminders,workoutPausedAt?0:restTimerEnd).catch(()=>{})},[restTimerEnd,workoutPausedAt,state.reminders.enabled,state.reminders.restTimer])
 
   function currentExerciseIds(source=state){
     const day=source.days[0]
@@ -173,7 +183,10 @@ export default function App(){
 
   function handleEndWorkout(){
     if(!(workoutStartedAt > 0)) return
-    if(!confirm('Cancel this workout? It will not be added to history.')) return
+    setConfirmation({title:'Cancel workout?',description:'This workout will not be added to your history.',confirmLabel:'Cancel workout',danger:true,action:cancelWorkout})
+  }
+
+  function cancelWorkout(){
     setWorkoutStartedAt(0)
     setWorkoutPausedAt(0)
     setWorkoutPausedTotal(0)
@@ -219,7 +232,6 @@ export default function App(){
   function notifyRestComplete(){
     if(state.restTimerVibration&&navigator.vibrate)navigator.vibrate([180,80,180])
     if(state.restTimerSound)try{const AudioContextClass=window.AudioContext||(window as typeof window&{webkitAudioContext?:typeof AudioContext}).webkitAudioContext;if(AudioContextClass){const context=new AudioContextClass(),oscillator=context.createOscillator(),gain=context.createGain();oscillator.connect(gain);gain.connect(context.destination);oscillator.frequency.value=880;gain.gain.value=.08;oscillator.start();oscillator.stop(context.currentTime+.18)}}catch{}
-    if(state.reminders.enabled&&state.reminders.restTimer)void showSystemNotification('Rest complete',{body:'Your next set is ready.',tag:'rest-timer',data:{url:'/?action=workout'}})
   }
 
   useEffect(()=>{
@@ -326,7 +338,7 @@ export default function App(){
     const data = exportJSON(state)
     try{
       await navigator.clipboard.writeText(data)
-      alert('Exported JSON to clipboard')
+      setToast('Backup copied to clipboard')
     }catch(e){
       // fallback
       const ta = document.createElement('textarea')
@@ -335,22 +347,27 @@ export default function App(){
       ta.select()
       document.execCommand('copy')
       ta.remove()
-      alert('Copied to clipboard (fallback)')
+      setToast('Backup copied to clipboard')
     }
   }
 
   function handleImport(){
-    const txt = prompt('Paste exported JSON to import')
-    if(!txt) return
-    const parsed = importJSON(txt)
-    if(!parsed) return alert('Invalid JSON')
-    const hasExistingData = state.history.length > 0 || state.days.length > 0
-    if(hasExistingData && !confirm('Importing will replace all current data. Continue?')) return
-    setState(parsed)
+    setImportDraft('');setImportError('');setImportOpen(true)
+  }
+
+  function submitImport(){
+    const parsed=importJSON(importDraft)
+    if(!parsed){setImportError('This is not a valid Wuwiit backup. Check the JSON and try again.');return}
+    const apply=()=>{setState(parsed);setImportOpen(false);setImportDraft('');setToast('Backup imported')}
+    if(state.history.length>0||state.days.length>0){setImportOpen(false);setConfirmation({title:'Replace current data?',description:'Importing this backup will replace your current program, history, weight entries, and settings.',confirmLabel:'Replace and import',danger:true,action:apply})}
+    else apply()
   }
 
   function handleReset(){
-    if(!confirm('Reset all data?')) return
+    setConfirmation({title:'Reset all data?',description:'Your program, workout history, weight entries, settings, and active session will be permanently removed.',confirmLabel:'Reset all data',danger:true,action:resetAllData})
+  }
+
+  function resetAllData(){
     localStorage.removeItem('wdiit.state.v1')
     localStorage.removeItem('wdiit.state.v2')
     localStorage.removeItem(LAST_WORKOUT_DATE_KEY)
@@ -367,8 +384,7 @@ export default function App(){
   }
 
   function handleResetHistory(){
-    if(!confirm('Reset history only?')) return
-    setState(prev => ({...prev, history: []}))
+    setConfirmation({title:'Reset workout history?',description:'All completed workout records and streak progress will be permanently removed. Your program will remain unchanged.',confirmLabel:'Reset history',danger:true,action:()=>setState(prev=>({...prev,history:[]}))})
   }
 
   function handleLogWeight(weight:number,date=localDateString()){
@@ -383,8 +399,16 @@ export default function App(){
     if(!action)return
     history.replaceState(null,'',location.pathname)
     setView('home')
-    if(action==='weigh-in')window.setTimeout(()=>{const raw=prompt('Enter your current weight (kg)');const value=Number(raw);if(raw&&Number.isFinite(value)&&value>0&&value<=1000)handleLogWeight(value)},100)
+    if(action==='weigh-in')window.setTimeout(()=>openWeightDialog(),100)
   },[])
+
+  useEffect(()=>{
+    const ready=(event:Event)=>{const update=(event as CustomEvent<{update:()=>void}>).detail.update;setConfirmation({title:'Update Wuwiit?',description:'A new version is ready. Updating now will reload the app.',confirmLabel:'Update now',action:update})}
+    window.addEventListener('wuwiit:update-ready',ready);return()=>window.removeEventListener('wuwiit:update-ready',ready)
+  },[])
+
+  function openWeightDialog(){setWeightDraft(state.weightTracking.entries[0]?String(state.weightTracking.entries[0].weight):'');setWeightError('');setWeightOpen(true)}
+  function submitWeight(event:React.FormEvent){event.preventDefault();const value=Number(weightDraft);if(!Number.isFinite(value)||value<=0||value>1000){setWeightError('Enter a weight between 0 and 1000 kg.');return}handleLogWeight(value);setWeightOpen(false);setToast('Weight logged')}
 
   function handleDeleteWeight(id:string){
     setState(prev=>({...prev,weightTracking:{...prev.weightTracking,entries:prev.weightTracking.entries.filter(entry=>entry.id!==id)}}))
@@ -461,7 +485,7 @@ export default function App(){
               lastWorkoutDate={lastWorkoutDate}
               completedToday={!showNextWorkoutToday&&state.history[0]?.date===localDateString()?state.history[0]:undefined}
               onStartNextWorkoutToday={handleStartNextWorkoutToday}
-              onLogWeight={handleLogWeight}
+              onRequestWeight={openWeightDialog}
             />
           )}
           {view==='edit' && (
@@ -524,6 +548,10 @@ export default function App(){
         </footer>
 
       </div>
+      <Modal open={Boolean(confirmation)} title={confirmation?.title||''} description={confirmation?.description} onClose={()=>setConfirmation(null)}><DialogActions><button className={secondaryButton} onClick={()=>setConfirmation(null)}>Keep current data</button><button className={confirmation?.danger?dangerButton:primaryButton} onClick={()=>{const action=confirmation?.action;setConfirmation(null);action?.()}}>{confirmation?.confirmLabel}</button></DialogActions></Modal>
+      <Modal open={importOpen} title="Import backup" description="Paste the contents of a Wuwiit JSON backup below." onClose={()=>setImportOpen(false)}><textarea autoFocus value={importDraft} onChange={event=>{setImportDraft(event.target.value);setImportError('')}} aria-label="Backup JSON" className="min-h-44 w-full resize-y rounded-xl border border-black/15 bg-black/[.025] p-3 font-mono text-xs outline-none focus:border-black dark:border-white/20 dark:bg-white/[.05] dark:focus:border-white" placeholder="Paste backup JSON…"/>{importError&&<p className="mt-2 text-sm text-red-600 dark:text-red-400" role="alert">{importError}</p>}<div className="mt-4"><DialogActions><button className={secondaryButton} onClick={()=>setImportOpen(false)}>Cancel</button><button className={primaryButton} disabled={!importDraft.trim()} onClick={submitImport}>Review import</button></DialogActions></div></Modal>
+      <Modal open={weightOpen} title="Log weight" description="Add your current weight to your progress history." onClose={()=>setWeightOpen(false)}><form onSubmit={submitWeight}><label className="block text-xs font-semibold uppercase tracking-wider text-black/50 dark:text-white/50">Weight (kg)<input autoFocus type="number" min="0.1" max="1000" step="0.1" value={weightDraft} onChange={event=>{setWeightDraft(event.target.value);setWeightError('')}} className="mt-2 min-h-12 w-full rounded-xl border border-black/15 bg-white px-3 text-lg outline-none focus:border-black dark:border-white/20 dark:bg-black dark:focus:border-white"/></label>{weightError&&<p className="mt-2 text-sm text-red-600 dark:text-red-400" role="alert">{weightError}</p>}<div className="mt-5"><DialogActions><button type="button" className={secondaryButton} onClick={()=>setWeightOpen(false)}>Cancel</button><button className={primaryButton}>Save weight</button></DialogActions></div></form></Modal>
+      {toast&&<Toast message={toast} onClose={()=>setToast('')}/>} 
     </div>
   )
 }

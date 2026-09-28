@@ -1,185 +1,53 @@
-import React from 'react'
-import { Monitor, Moon, Sun } from 'lucide-react'
-import { ReminderSettings } from '../lib/storage'
-import { NotificationStatus } from '../lib/notifications'
+import React,{useState} from 'react'
+import {Bell,ChevronDown,CloudDownload,Database,Dumbbell,Monitor,Moon,Scale,Sun,Trash2} from 'lucide-react'
+import {ReminderSettings} from '../lib/storage'
+import {NotificationStatus} from '../lib/notifications'
+import Modal from '../components/Modal'
 
-type TemplateId = 'ppl' | '5day' | 'arnold' | 'home'
+type TemplateId='ppl'|'5day'|'arnold'|'home'
+type Section='workout'|'notifications'|'data'|'danger'
+type SettingsProps={onOpenTemplates:()=>void;onExportClipboard:()=>void|Promise<void>;onImport:()=>void;onResetHistory:()=>void;onReset:()=>void;isTemplateModalOpen:boolean;onCloseTemplateModal:()=>void;onUseTemplate:(templateId:TemplateId)=>void;themePref:'system'|'light'|'dark';onCycleTheme:()=>void;weightTrackingEnabled:boolean;onToggleWeightTracking:()=>void;weeklyWorkoutGoal:number;onWeeklyWorkoutGoalChange:(goal:number)=>void;restSeconds:number;onRestSecondsChange:(seconds:number)=>void;reminders:ReminderSettings;onRemindersChange:(settings:ReminderSettings)=>void;notificationPermission:NotificationStatus;onEnableNotifications:()=>void|Promise<void>;isInstalled:boolean;canInstall:boolean;onInstall:()=>void|Promise<void>}
+const selectClass='min-h-10 rounded-lg border border-black/15 bg-white px-3 text-sm font-semibold text-black outline-none dark:border-white/20 dark:bg-black dark:text-white'
 
-type SettingsProps = {
-  onOpenTemplates: () => void
-  onExportClipboard: () => void | Promise<void>
-  onImport: () => void
-  onResetHistory: () => void
-  onReset: () => void
-  isTemplateModalOpen: boolean
-  onCloseTemplateModal: () => void
-  onUseTemplate: (templateId: TemplateId) => void
-  themePref: 'system' | 'light' | 'dark'
-  onCycleTheme: () => void
-  weightTrackingEnabled: boolean
-  onToggleWeightTracking: () => void
-  weeklyWorkoutGoal: number
-  onWeeklyWorkoutGoalChange: (goal:number) => void
-  restSeconds: number
-  onRestSecondsChange: (seconds:number) => void
-  reminders: ReminderSettings
-  onRemindersChange: (settings:ReminderSettings) => void
-  notificationPermission: NotificationStatus
-  onEnableNotifications: () => void | Promise<void>
-  isInstalled: boolean
-  canInstall: boolean
-  onInstall: () => void | Promise<void>
-}
-
-export default function Settings({
-  onOpenTemplates,
-  onExportClipboard,
-  onImport,
-  onResetHistory,
-  onReset,
-  isTemplateModalOpen,
-  onCloseTemplateModal,
-  onUseTemplate,
-  themePref,
-  onCycleTheme,
-  weightTrackingEnabled,
-  onToggleWeightTracking,
-  weeklyWorkoutGoal,
-  onWeeklyWorkoutGoalChange,
-  restSeconds,
-  onRestSecondsChange,
-  reminders,
-  onRemindersChange,
-  notificationPermission,
-  onEnableNotifications,
-  isInstalled,
-  canInstall,
-  onInstall,
-}: SettingsProps) {
+export default function Settings(p:SettingsProps){
+  const {onOpenTemplates,onExportClipboard,onImport,onResetHistory,onReset,isTemplateModalOpen,onCloseTemplateModal,onUseTemplate,themePref,onCycleTheme,weightTrackingEnabled,onToggleWeightTracking,weeklyWorkoutGoal,onWeeklyWorkoutGoalChange,restSeconds,onRestSecondsChange,reminders,onRemindersChange,notificationPermission,onEnableNotifications,isInstalled,canInstall,onInstall}=p
+  const [open,setOpen]=useState<Section|null>('workout')
   const days=['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
   const update=(next:Partial<ReminderSettings>)=>onRemindersChange({...reminders,...next,enabled:true})
-  return (
-    <>
-      <section className="bg-white dark:bg-black rounded-lg space-y-3">
-        <div className="rounded-xl border border-black/15 dark:border-white/25 p-4 bg-black/[0.015] dark:bg-white/[0.02]">
-          <div className="text-[11px] uppercase tracking-wider text-black/60 dark:text-white/60">Appearance</div>
-          <button
-            className="mt-3 w-full py-2.5 rounded-lg border border-black/20 dark:border-white/30 bg-white dark:bg-black text-black dark:text-white flex items-center justify-center gap-2"
-            onClick={onCycleTheme}
-          >
-            {themePref === 'system' ? (
-              <Monitor size={16} strokeWidth={1.8} />
-            ) : themePref === 'dark' ? (
-              <Moon size={16} strokeWidth={1.8} />
-            ) : (
-              <Sun size={16} strokeWidth={1.8} />
-            )}
-            <span>
-              Theme: {themePref === 'system' ? 'System' : themePref === 'dark' ? 'Dark' : 'Light'}
-            </span>
-          </button>
-        </div>
-
-        <div className="rounded-xl border border-black/15 p-4 dark:border-white/25 bg-black/[0.015] dark:bg-white/[0.02]">
-          <div className="text-[11px] uppercase tracking-wider text-black/60 dark:text-white/60">App & offline</div>
-          <div className="mt-1 text-xs text-black/55 dark:text-white/55">Installed workouts and data remain available without a connection.</div>
-          {isInstalled?<div className="mt-3 rounded-lg border border-black/15 px-3 py-2.5 text-sm dark:border-white/20">Installed on this device</div>:canInstall?<button className="mt-3 w-full rounded-lg bg-black py-2.5 text-white dark:bg-white dark:text-black" onClick={onInstall}>Install Wuwiit</button>:<div className="mt-3 rounded-lg border border-black/15 px-3 py-2.5 text-xs dark:border-white/20">On iPhone or iPad, use Share → Add to Home Screen. In other browsers, use the install option in the address bar or menu.</div>}
-        </div>
-
-        <div className="rounded-xl border border-black/15 p-4 dark:border-white/25 bg-black/[0.015] dark:bg-white/[0.02]">
-          <div className="text-[11px] uppercase tracking-wider text-black/60 dark:text-white/60">Notifications</div>
-          {notificationPermission!=='granted'?<><div className="mt-1 text-xs text-black/55 dark:text-white/55">Allow notifications for timer completion and reminders while Wuwiit is in the background.</div><button disabled={notificationPermission==='denied'||notificationPermission==='unsupported'} className="mt-3 w-full rounded-lg bg-black py-2.5 text-white disabled:opacity-40 dark:bg-white dark:text-black" onClick={onEnableNotifications}>{notificationPermission==='denied'?'Blocked in browser settings':notificationPermission==='unsupported'?'Not supported on this device':'Enable notifications'}</button></>:<>
-            <label className="mt-3 flex items-center justify-between gap-3 rounded-lg border border-black/15 px-3 py-2.5 dark:border-white/20"><span className="text-sm font-medium">Rest timer complete</span><input type="checkbox" checked={reminders.restTimer} onChange={event=>update({restTimer:event.target.checked})}/></label>
-            <div className="mt-2 rounded-lg border border-black/15 p-3 dark:border-white/20">
-              <label className="flex items-center justify-between"><span className="text-sm font-medium">Workout reminders</span><input type="checkbox" checked={reminders.workout.enabled} onChange={event=>update({workout:{...reminders.workout,enabled:event.target.checked}})}/></label>
-              {reminders.workout.enabled&&<><div className="mt-3 flex flex-wrap gap-1">{days.map((day,index)=><button type="button" key={day} onClick={()=>update({workout:{...reminders.workout,weekdays:reminders.workout.weekdays.includes(index)?reminders.workout.weekdays.filter(value=>value!==index):[...reminders.workout.weekdays,index].sort()}})} className={`rounded-full border px-2.5 py-1 text-xs ${reminders.workout.weekdays.includes(index)?'bg-black text-white dark:bg-white dark:text-black':'border-black/20 dark:border-white/25'}`}>{day}</button>)}</div><input aria-label="Workout reminder time" type="time" value={reminders.workout.time} onChange={event=>update({workout:{...reminders.workout,time:event.target.value}})} className="mt-3 w-full rounded-lg border border-black/20 bg-white px-3 py-2 text-sm dark:border-white/30 dark:bg-black"/></>}
-            </div>
-            <div className="mt-2 rounded-lg border border-black/15 p-3 dark:border-white/20">
-              <label className="flex items-center justify-between"><span className="text-sm font-medium">Weekly weigh-in</span><input type="checkbox" checked={reminders.weighIn.enabled} onChange={event=>update({weighIn:{...reminders.weighIn,enabled:event.target.checked}})}/></label>
-              {reminders.weighIn.enabled&&<div className="mt-3 grid grid-cols-2 gap-2"><select aria-label="Weigh-in reminder day" value={reminders.weighIn.weekday} onChange={event=>update({weighIn:{...reminders.weighIn,weekday:Number(event.target.value)}})} className="rounded-lg border border-black/20 bg-white px-3 py-2 text-sm dark:border-white/30 dark:bg-black">{days.map((day,index)=><option key={day} value={index}>{day}</option>)}</select><input aria-label="Weigh-in reminder time" type="time" value={reminders.weighIn.time} onChange={event=>update({weighIn:{...reminders.weighIn,time:event.target.value}})} className="rounded-lg border border-black/20 bg-white px-3 py-2 text-sm dark:border-white/30 dark:bg-black"/></div>}
+  const themeLabel=themePref==='system'?'System':themePref==='dark'?'Dark':'Light'
+  const ThemeIcon=themePref==='system'?Monitor:themePref==='dark'?Moon:Sun
+  const notificationSummary=notificationPermission!=='granted'?'Off':[reminders.workout.enabled?'Workouts':'',reminders.weighIn.enabled?'Weigh-ins':''].filter(Boolean).join(', ')||'No reminders'
+  return <>
+    <div className="space-y-3 pb-3">
+      <section className="grid grid-cols-2 gap-2">
+        <button onClick={onCycleTheme} className="flex min-h-24 flex-col justify-between rounded-2xl border border-black/10 bg-black/[.025] p-4 text-left dark:border-white/15 dark:bg-white/[.05]"><ThemeIcon size={20}/><span><b className="block text-sm">Appearance</b><span className="text-xs text-black/50 dark:text-white/50">{themeLabel} theme</span></span></button>
+        <button disabled={isInstalled||!canInstall} onClick={onInstall} className="flex min-h-24 flex-col justify-between rounded-2xl border border-black/10 bg-black/[.025] p-4 text-left disabled:opacity-55 dark:border-white/15 dark:bg-white/[.05]"><CloudDownload size={20}/><span><b className="block text-sm">{isInstalled?'App installed':canInstall?'Install app':'App & offline'}</b><span className="text-xs text-black/50 dark:text-white/50">{isInstalled?'Ready offline':canInstall?'Add to device':'Use browser menu'}</span></span></button>
+      </section>
+      <div className="space-y-2">
+        <SettingsSection id="workout" open={open==='workout'} onToggle={()=>setOpen(open==='workout'?null:'workout')} icon={<Dumbbell size={18}/>} title="Workout" summary={`${weeklyWorkoutGoal}× weekly · ${restSeconds?`${restSeconds}s rest`:'No rest timer'}`}>
+          <SettingRow title="Weekly goal" detail="Workouts needed for a streak"><select aria-label="Weekly workout goal" value={weeklyWorkoutGoal} onChange={e=>onWeeklyWorkoutGoalChange(Number(e.target.value))} className={selectClass}>{[1,2,3,4,5,6,7].map(goal=><option key={goal} value={goal}>{goal}×</option>)}</select></SettingRow>
+          <SettingRow title="Rest timer" detail="Default time after each set"><select aria-label="Rest timer duration" value={restSeconds} onChange={e=>onRestSecondsChange(Number(e.target.value))} className={selectClass}>{[0,30,45,60,75,90,120,180,300].map(seconds=><option key={seconds} value={seconds}>{seconds===0?'Off':seconds<60?`${seconds}s`:`${Math.floor(seconds/60)}m${seconds%60?` ${seconds%60}s`:''}`}</option>)}</select></SettingRow>
+          <SettingRow title="Weight tracking" detail="History, trends, and weigh-ins"><Switch checked={weightTrackingEnabled} onChange={onToggleWeightTracking} label="Weight tracking"/></SettingRow>
+          <button className="mt-3 min-h-11 w-full rounded-xl bg-black text-sm font-semibold text-white dark:bg-white dark:text-black" onClick={onOpenTemplates}>Browse workout templates</button>
+        </SettingsSection>
+        <SettingsSection id="notifications" open={open==='notifications'} onToggle={()=>setOpen(open==='notifications'?null:'notifications')} icon={<Bell size={18}/>} title="Notifications" summary={notificationSummary}>
+          {notificationPermission!=='granted'?<div className="rounded-xl bg-black/[.035] p-3 dark:bg-white/[.06]"><p className="text-xs leading-relaxed text-black/55 dark:text-white/55">Get workout, weigh-in, and rest timer reminders.</p><button disabled={notificationPermission==='denied'||notificationPermission==='unsupported'} className="mt-3 min-h-11 w-full rounded-xl bg-black text-sm font-semibold text-white disabled:opacity-40 dark:bg-white dark:text-black" onClick={onEnableNotifications}>{notificationPermission==='denied'?'Blocked in browser settings':notificationPermission==='unsupported'?'Not supported on this device':'Enable notifications'}</button></div>:<>
+            <div className="divide-y divide-black/10 dark:divide-white/10">
+              <div className="py-3 first:pt-0"><div className="flex items-center justify-between gap-3"><div><b className="block text-sm">Workout reminders</b><span className="mt-0.5 block text-xs text-black/45 dark:text-white/45">On selected training days</span></div><Switch checked={reminders.workout.enabled} onChange={()=>update({workout:{...reminders.workout,enabled:!reminders.workout.enabled}})} label="Workout reminders"/></div>{reminders.workout.enabled&&<div className="mt-3 space-y-3"><DayPicker days={days} selected={reminders.workout.weekdays} onChange={weekdays=>update({workout:{...reminders.workout,weekdays}})}/><FieldLabel text="Time"><input aria-label="Workout reminder time" type="time" value={reminders.workout.time} onChange={e=>update({workout:{...reminders.workout,time:e.target.value}})} className={`${selectClass} mt-1 w-full`}/></FieldLabel></div>}</div>
+              <div className="py-3 last:pb-0"><div className="flex items-center justify-between gap-3"><div><b className="block text-sm">Weekly weigh-in</b><span className="mt-0.5 block text-xs text-black/45 dark:text-white/45">One reminder each week</span></div><Switch checked={reminders.weighIn.enabled} onChange={()=>update({weighIn:{...reminders.weighIn,enabled:!reminders.weighIn.enabled}})} label="Weekly weigh-in"/></div>{reminders.weighIn.enabled&&<div className="mt-3 grid grid-cols-2 gap-2"><FieldLabel text="Day"><select aria-label="Weigh-in reminder day" value={reminders.weighIn.weekday} onChange={e=>update({weighIn:{...reminders.weighIn,weekday:Number(e.target.value)}})} className={`${selectClass} mt-1 w-full`}>{days.map((day,index)=><option key={day} value={index}>{day}</option>)}</select></FieldLabel><FieldLabel text="Time"><input aria-label="Weigh-in reminder time" type="time" value={reminders.weighIn.time} onChange={e=>update({weighIn:{...reminders.weighIn,time:e.target.value}})} className={`${selectClass} mt-1 w-full`}/></FieldLabel></div>}</div>
             </div>
           </>}
-        </div>
-
-        <div className="rounded-xl border border-black/15 dark:border-white/25 p-4 bg-black/[0.015] dark:bg-white/[0.02]">
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <div className="text-[11px] uppercase tracking-wider text-black/60 dark:text-white/60">Weight Tracking</div>
-              <div className="text-xs mt-1 text-black/65 dark:text-white/65">Weight history and weekly weigh-in reminders</div>
-            </div>
-            <div className="flex shrink-0 items-center">
-              <button type="button" role="switch" aria-checked={weightTrackingEnabled} aria-label="Weight tracking" onClick={onToggleWeightTracking} className={`relative h-7 w-12 shrink-0 rounded-full border transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-black/40 focus-visible:ring-offset-2 dark:focus-visible:ring-white/50 dark:focus-visible:ring-offset-black ${weightTrackingEnabled?'border-black bg-black dark:border-white dark:bg-white':'border-black/20 bg-black/15 dark:border-white/25 dark:bg-white/20'}`}>
-                <span aria-hidden="true" className={`absolute left-0 top-1 h-5 w-5 rounded-full shadow-sm transition-transform ${weightTrackingEnabled?'translate-x-6 bg-white dark:bg-black':'translate-x-1 bg-white dark:bg-black'}`} />
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <div className="rounded-xl border border-black/15 dark:border-white/25 p-4 bg-black/[0.015] dark:bg-white/[0.02]">
-          <div className="text-[11px] uppercase tracking-wider text-black/60 dark:text-white/60">Workout Settings</div>
-          <label className="mt-3 flex items-center justify-between gap-4 rounded-lg border border-black/15 px-3 py-2.5 dark:border-white/20">
-            <span><span className="block text-sm font-medium">Weekly streak goal</span><span className="mt-0.5 block text-xs text-black/55 dark:text-white/55">Workouts needed each week</span></span>
-            <select aria-label="Weekly workout goal" value={weeklyWorkoutGoal} onChange={event=>onWeeklyWorkoutGoalChange(Number(event.target.value))} className="min-h-10 rounded-lg border border-black/20 bg-white px-3 text-sm font-medium text-black dark:border-white/30 dark:bg-black dark:text-white">
-              {[1,2,3,4,5,6,7].map(goal=><option key={goal} value={goal}>{goal}×</option>)}
-            </select>
-          </label>
-          <label className="mt-2 flex items-center justify-between gap-4 rounded-lg border border-black/15 px-3 py-2.5 dark:border-white/20">
-            <span><span className="block text-sm font-medium">Rest timer</span><span className="mt-0.5 block text-xs text-black/55 dark:text-white/55">Default rest after every set</span></span>
-            <select aria-label="Rest timer duration" value={restSeconds} onChange={event=>onRestSecondsChange(Number(event.target.value))} className="min-h-10 rounded-lg border border-black/20 bg-white px-3 text-sm font-medium text-black dark:border-white/30 dark:bg-black dark:text-white">
-              {[0,30,45,60,75,90,120,180,300].map(seconds=><option key={seconds} value={seconds}>{seconds===0?'Off':seconds<60?`${seconds}s`:`${seconds/60}m${seconds%60?` ${seconds%60}s`:''}`}</option>)}
-            </select>
-          </label>
-          <button className="mt-3 w-full py-2.5 rounded-lg bg-black text-white dark:bg-white dark:text-black border border-black dark:border-white" onClick={onOpenTemplates}>Use Templates</button>
-        </div>
-
-        <div className="rounded-xl border border-black/15 dark:border-white/25 p-4 bg-black/[0.015] dark:bg-white/[0.02]">
-          <div className="text-[11px] uppercase tracking-wider text-black/60 dark:text-white/60">Backup</div>
-          <div className="flex flex-col gap-2 mt-3">
-            <button className="w-full py-2.5 rounded-lg border border-black/20 dark:border-white/30 bg-white dark:bg-black text-black dark:text-white" onClick={onExportClipboard}>Export JSON (clipboard)</button>
-            <button className="w-full py-2.5 rounded-lg border border-black/20 dark:border-white/30 bg-white dark:bg-black text-black dark:text-white" onClick={onImport}>Import JSON</button>
-          </div>
-        </div>
-
-        <div className="rounded-xl border border-red-300/80 dark:border-red-500/35 p-4 bg-red-50/70 dark:bg-red-950/20">
-          <div className="text-[11px] uppercase tracking-wider text-red-700/80 dark:text-red-300/85">Delete</div>
-          <div className="flex flex-col gap-2 mt-3">
-            <button className="w-full py-2.5 rounded-lg border border-red-300/90 dark:border-red-500/45 bg-white/90 dark:bg-red-950/30 text-red-800 dark:text-red-200" onClick={onResetHistory}>Reset History</button>
-            <button className="w-full py-2.5 rounded-lg border border-red-400 dark:border-red-500/55 bg-white/95 dark:bg-red-950/35 text-red-900 dark:text-red-100" onClick={onReset}>Reset All Data</button>
-          </div>
-        </div>
-      </section>
-
-      {isTemplateModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-3">
-          <button
-            aria-label="Close template picker"
-            className="absolute inset-0 bg-black/45"
-            onClick={onCloseTemplateModal}
-          />
-          <div className="relative w-full max-w-md rounded-lg border border-black/20 dark:border-white/30 bg-white dark:bg-black p-3">
-            <div className="text-sm font-medium text-black dark:text-white">Choose Template</div>
-            <div className="mt-2 grid gap-2">
-              <button className="w-full text-left rounded-md border-2 border-black dark:border-white px-3 py-2" onClick={() => onUseTemplate('home')}>
-                <div className="text-sm font-medium text-black dark:text-white">Home Workout</div>
-                <div className="text-xs text-black/60 dark:text-white/60">3-day bodyweight strength and conditioning plan</div>
-              </button>
-              <button className="w-full text-left rounded-md border border-black/20 dark:border-white/30 px-3 py-2" onClick={() => onUseTemplate('ppl')}>
-                <div className="text-sm font-medium text-black dark:text-white">Push Pull Legs</div>
-                <div className="text-xs text-black/60 dark:text-white/60">Classic 3-day PPL split</div>
-              </button>
-              <button className="w-full text-left rounded-md border border-black/20 dark:border-white/30 px-3 py-2" onClick={() => onUseTemplate('5day')}>
-                <div className="text-sm font-medium text-black dark:text-white">5-Day</div>
-                <div className="text-xs text-black/60 dark:text-white/60">Back, Chest, Biceps, Shoulder, Legs</div>
-              </button>
-              <button className="w-full text-left rounded-md border border-black/20 dark:border-white/30 px-3 py-2" onClick={() => onUseTemplate('arnold')}>
-                <div className="text-sm font-medium text-black dark:text-white">Arnold Split</div>
-                <div className="text-xs text-black/60 dark:text-white/60">Famous bodybuilding split variation</div>
-              </button>
-            </div>
-            <button className="mt-2 w-full py-2 rounded-md border border-black/20 dark:border-white/30" onClick={onCloseTemplateModal}>Cancel</button>
-          </div>
-        </div>
-      )}
-    </>
-  )
+        </SettingsSection>
+        <SettingsSection id="data" open={open==='data'} onToggle={()=>setOpen(open==='data'?null:'data')} icon={<Database size={18}/>} title="Data & backup" summary="Import or export"><div className="grid grid-cols-2 gap-2"><button className="min-h-11 rounded-xl border border-black/15 text-sm font-semibold dark:border-white/20" onClick={onExportClipboard}>Copy backup</button><button className="min-h-11 rounded-xl border border-black/15 text-sm font-semibold dark:border-white/20" onClick={onImport}>Import backup</button></div></SettingsSection>
+        <SettingsSection id="danger" open={open==='danger'} onToggle={()=>setOpen(open==='danger'?null:'danger')} icon={<Trash2 size={18}/>} title="Reset" summary="History or all data" danger><div className="grid grid-cols-2 gap-2"><button className="min-h-11 rounded-xl border border-red-300 text-sm font-semibold text-red-700 dark:border-red-500/40 dark:text-red-300" onClick={onResetHistory}>Reset history</button><button className="min-h-11 rounded-xl bg-red-700 text-sm font-semibold text-white dark:bg-red-600" onClick={onReset}>Reset all data</button></div></SettingsSection>
+      </div>
+    </div>
+    <Modal open={isTemplateModalOpen} title="Choose a template" description="This opens a draft so you can review it before saving." onClose={onCloseTemplateModal}><div className="space-y-2">{([['home','Home Workout','3-day bodyweight strength and conditioning'],['ppl','Push Pull Legs','Classic 3-day PPL split'],['5day','5-Day','Back, chest, biceps, shoulders, and legs'],['arnold','Arnold Split','Chest/back, shoulders/arms, and legs']] as [TemplateId,string,string][]).map(([id,name,detail])=><button key={id} className="flex w-full items-center gap-3 rounded-xl border border-black/10 p-3 text-left hover:border-black/30 dark:border-white/15 dark:hover:border-white/35" onClick={()=>onUseTemplate(id)}><span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-black text-white dark:bg-white dark:text-black">{id==='home'?<Scale size={17}/>:<Dumbbell size={17}/>}</span><span className="min-w-0"><b className="block text-sm">{name}</b><span className="block text-xs text-black/50 dark:text-white/50">{detail}</span></span></button>)}</div></Modal>
+  </>
 }
+
+function SettingsSection({id,open,onToggle,icon,title,summary,children,danger=false}:{id:Section;open:boolean;onToggle:()=>void;icon:React.ReactNode;title:string;summary:string;children:React.ReactNode;danger?:boolean}){return <section className={`overflow-hidden rounded-2xl border bg-black/[.012] dark:bg-white/[.025] ${danger?'border-red-300/70 dark:border-red-500/30':'border-black/10 dark:border-white/15'}`}><button type="button" aria-expanded={open} aria-controls={`${id}-settings`} onClick={onToggle} className={`flex w-full items-center gap-3 px-4 py-4 text-left ${danger?'text-red-700 dark:text-red-300':''}`}><span className="shrink-0 opacity-65">{icon}</span><span className="min-w-0 flex-1"><b className="block text-sm leading-5">{title}</b><span className="mt-1 block truncate text-xs font-normal leading-4 opacity-50">{summary}</span></span><ChevronDown size={17} className={`shrink-0 opacity-45 transition-transform ${open?'rotate-180':''}`}/></button>{open&&<div id={`${id}-settings`} className="border-t border-black/10 bg-black/[.015] p-3 dark:border-white/10 dark:bg-white/[.025]">{children}</div>}</section>}
+function SettingRow({title,detail,children}:{title:string;detail:string;children:React.ReactNode}){return <div className="flex min-h-[62px] items-center justify-between gap-3 border-b border-black/10 py-2 last:border-0 dark:border-white/10"><span><b className="block text-sm">{title}</b><span className="block text-xs text-black/45 dark:text-white/45">{detail}</span></span><span className="shrink-0">{children}</span></div>}
+function Switch({checked,onChange,label}:{checked:boolean;onChange:()=>void;label:string}){return <button type="button" role="switch" aria-checked={checked} aria-label={label} onClick={onChange} className={`relative h-6 w-10 shrink-0 rounded-full transition-colors ${checked?'bg-black dark:bg-white':'bg-black/15 dark:bg-white/20'}`}><span className={`absolute left-1 top-1 h-4 w-4 rounded-full bg-white shadow transition-transform dark:bg-black ${checked?'translate-x-4':''}`}/></button>}
+function FieldLabel({text,children}:{text:string;children:React.ReactNode}){return <label className="block text-[10px] font-semibold uppercase tracking-wider text-black/45 dark:text-white/45">{text}{children}</label>}
+function DayPicker({days,selected,onChange}:{days:string[];selected:number[];onChange:(days:number[])=>void}){return <fieldset><legend className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-black/45 dark:text-white/45">Days</legend><div className="grid grid-cols-7 gap-1">{days.map((day,index)=><button type="button" aria-pressed={selected.includes(index)} aria-label={day} key={day} onClick={()=>onChange(selected.includes(index)?selected.filter(value=>value!==index):[...selected,index].sort())} className={`min-h-8 rounded-lg border text-[10px] font-semibold ${selected.includes(index)?'border-black bg-black text-white dark:border-white/40 dark:bg-white/15 dark:text-white':'border-black/10 text-black/45 dark:border-white/10 dark:text-white/45'}`}>{day.slice(0,2)}</button>)}</div></fieldset>}

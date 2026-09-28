@@ -31,7 +31,7 @@ type HomeProps = {
   lastWorkoutDate: string
   completedToday?: DayEntry
   onStartNextWorkoutToday: () => void
-  onLogWeight: (weight:number, date?:string) => void
+  onRequestWeight: () => void
 }
 
 export default function Home({
@@ -62,7 +62,7 @@ export default function Home({
   lastWorkoutDate,
   completedToday,
   onStartNextWorkoutToday,
-  onLogWeight,
+  onRequestWeight,
 }: HomeProps) {
   const latestWeight = state.weightTracking.entries[0]
   const daysSinceWeight = latestWeight
@@ -70,19 +70,11 @@ export default function Home({
     : Infinity
   const showWeightReminder = state.weightTracking.enabled && daysSinceWeight >= 7
 
-  function logWeight(){
-    const raw=prompt('Enter your current weight (kg)',latestWeight?String(latestWeight.weight):'')
-    if(raw===null)return
-    const value=Number(raw)
-    if(!Number.isFinite(value) || value<=0 || value>1000)return alert('Enter a valid weight between 0 and 1000 kg.')
-    onLogWeight(value)
-  }
-
   return (
     <div className="space-y-3">
     {showWeightReminder && <section className="rounded-lg border border-black/15 dark:border-white/20 p-3 bg-black/[0.02] dark:bg-white/[0.03] flex items-center justify-between gap-3">
       <div><div className="text-sm font-medium text-black dark:text-white">Weekly weigh-in</div><div className="text-xs text-black/60 dark:text-white/60 mt-0.5">Keep your weight trend up to date.</div></div>
-      <button className="shrink-0 rounded-md bg-black text-white dark:bg-white dark:text-black px-3 py-2 text-xs font-medium" onClick={logWeight}>Log weight</button>
+      <button className="shrink-0 rounded-md bg-black text-white dark:bg-white dark:text-black px-3 py-2 text-xs font-medium" onClick={onRequestWeight}>Log weight</button>
     </section>}
     <TodayCard
       state={state}

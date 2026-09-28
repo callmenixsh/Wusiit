@@ -3,6 +3,7 @@ import { Activity, CalendarDays, ChevronDown, Clock3, Dumbbell, Plus, Scale, Tra
 import type { AppState, DayEntry, WorkoutRating } from '../lib/storage'
 import { localDateString } from '../lib/dates'
 import { getWeeklyStats } from '../lib/history'
+import Modal, { dangerButton, DialogActions, secondaryButton } from '../components/Modal'
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
@@ -54,6 +55,7 @@ export default function History({state,lastWorkoutDate,onLogWeight,onDeleteWeigh
   const [selectedWeightId,setSelectedWeightId]=useState<string|null>(null)
   const [splitFilter,setSplitFilter]=useState('all')
   const [ratingFilter,setRatingFilter]=useState<RatingFilter>('all')
+  const [pendingDelete,setPendingDelete]=useState<{kind:'weight'|'workout';id:string;title:string;description:string}|null>(null)
   const exerciseIds=[...new Set(state.history.flatMap(entry=>(entry.performances||[]).map(item=>item.exerciseId)))]
   const [progressExerciseId,setProgressExerciseId]=useState(exerciseIds[0]||'')
   const {currentStreak,highestStreak,thisWeek,goal}=getWeeklyStats(state.history,state.weeklyWorkoutGoal)
@@ -100,11 +102,14 @@ export default function History({state,lastWorkoutDate,onLogWeight,onDeleteWeigh
     onLogWeight(value,weightDate);setWeightDraft('');setShowWeightForm(false)
   }
   function deleteWeight(){
-    if(!selectedWeight||!confirm(`Delete the ${selectedWeight.weight} kg entry from ${formatDateLabel(selectedWeight.date)}?`))return
-    onDeleteWeight(selectedWeight.id);setSelectedWeightId(null)
+    if(!selectedWeight)return
+    setPendingDelete({kind:'weight',id:selectedWeight.id,title:'Delete weight entry?',description:`Delete the ${selectedWeight.weight} kg entry from ${formatDateLabel(selectedWeight.date)}?`})
   }
 
+  function confirmDelete(){if(!pendingDelete)return;if(pendingDelete.kind==='weight'){onDeleteWeight(pendingDelete.id);setSelectedWeightId(null)}else onDeleteWorkout(pendingDelete.id);setPendingDelete(null)}
+
   return <div className="mb-4 space-y-4">
+    <Modal open={Boolean(pendingDelete)} title={pendingDelete?.title||''} description={pendingDelete?.description} onClose={()=>setPendingDelete(null)}><DialogActions><button className={secondaryButton} onClick={()=>setPendingDelete(null)}>Keep it</button><button className={dangerButton} onClick={confirmDelete}>Delete</button></DialogActions></Modal>
     <div className="grid rounded-xl bg-black/[.055] p-1 dark:bg-white/[.09]" style={{gridTemplateColumns:`repeat(${tabs.length}, minmax(0, 1fr))`}} role="tablist" aria-label="Progress sections">
       {tabs.map(([id,label])=><button key={id} role="tab" aria-selected={tab===id} onClick={()=>setTab(id)} className={`min-h-10 rounded-lg px-3 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-black/40 dark:focus-visible:ring-white/50 ${tab===id?'bg-white text-black shadow-sm dark:bg-black dark:text-white':'text-black/55 hover:text-black dark:text-white/55 dark:hover:text-white'}`}>{label}</button>)}
     </div>
@@ -121,7 +126,7 @@ export default function History({state,lastWorkoutDate,onLogWeight,onDeleteWeigh
 
     {tab==='workouts'&&<div role="tabpanel" className="space-y-3">
       {state.history.length>0&&<div className="grid grid-cols-2 gap-2"><Filter value={splitFilter} onChange={setSplitFilter} label="Filter by workout"><option value="all">All workouts</option>{splits.map(([label])=><option key={label}>{label}</option>)}</Filter><Filter value={ratingFilter} onChange={value=>setRatingFilter(value as RatingFilter)} label="Filter by rating"><option value="all">All ratings</option><option value="challenging">Challenging</option><option value="balanced">Well balanced</option><option value="easy">Could progress</option></Filter></div>}
-      {Object.entries(groupedHistory).map(([month,entries])=><section key={month}><h3 className="mb-2 text-xs font-medium uppercase tracking-widest text-black/45 dark:text-white/45">{month}</h3><div className="overflow-hidden rounded-2xl border border-black/15 dark:border-white/20">{entries.map((entry,index)=><WorkoutRow key={entry.id||`${entry.date}-${index}`} entry={entry} onDelete={entry.id?()=>{if(confirm(`Delete ${entry.label} from ${formatDateLabel(entry.date)}?`))onDeleteWorkout(entry.id!)}:undefined}/>)}</div></section>)}
+      {Object.entries(groupedHistory).map(([month,entries])=><section key={month}><h3 className="mb-2 text-xs font-medium uppercase tracking-widest text-black/45 dark:text-white/45">{month}</h3><div className="overflow-hidden rounded-2xl border border-black/15 dark:border-white/20">{entries.map((entry,index)=><WorkoutRow key={entry.id||`${entry.date}-${index}`} entry={entry} onDelete={entry.id?()=>setPendingDelete({kind:'workout',id:entry.id!,title:'Delete workout?',description:`Delete ${entry.label} from ${formatDateLabel(entry.date)}? This cannot be undone.`}):undefined}/>)}</div></section>)}
       {state.history.length>0&&filteredHistory.length===0&&<div className="rounded-2xl border border-dashed border-black/20 px-5 py-10 text-center text-sm text-black/55 dark:border-white/25 dark:text-white/55">No workouts match these filters.</div>}
       {state.history.length===0&&<EmptyHistory onGoHome={onGoHome}/>}
     </div>}

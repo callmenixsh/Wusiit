@@ -1,6 +1,7 @@
 import React,{useEffect,useMemo,useRef,useState} from 'react'
 import {ArrowLeft,BookOpen,CalendarDays,Check,ChevronDown,Plus,Trash2} from 'lucide-react'
 import {AppState,makeId,STANDARD_MUSCLE_GROUPS} from '../lib/storage'
+import Modal,{DialogActions,primaryButton} from '../components/Modal'
 
 type Props={state:AppState;onSave:(state:AppState)=>void;templateDraftItems?:{name:string;description?:string}[]|null;templateDraftToken?:number;onTemplateDraftApplied?:()=>void}
 type Tab='plan'|'library'
@@ -43,6 +44,7 @@ function NativeSelect({value,onChange,children}:{value:string;onChange:(value:st
 
 export default function QueueEditor({state,onSave,templateDraftItems,templateDraftToken,onTemplateDraftApplied}:Props){
   const [tab,setTab]=useState<Tab>('plan'),[draft,setDraft]=useState(()=>asWeek(state)),[expanded,setExpanded]=useState<string|null>(null)
+  const [validationMessage,setValidationMessage]=useState('')
   useEffect(()=>setDraft(asWeek(state)),[state])
   useEffect(()=>{
     if(!templateDraftItems?.length)return
@@ -74,12 +76,13 @@ export default function QueueEditor({state,onSave,templateDraftItems,templateDra
   const editingExercise=tab==='library'?draft.exercises.find(ex=>ex.id===expanded):undefined
   const saveDraft=()=>{
     const incomplete=draft.exercises.find(ex=>!ex.name.trim()||!(ex.muscleGroupIds?.length||draft.muscleGroups.some(g=>g.exerciseIds.includes(ex.id))))
-    if(incomplete){setTab('library');setExpanded(incomplete.id);alert('Add a name and at least one muscle group to every exercise.');return}
-    if(!draft.days.length){alert('Add at least one training day');return}
+    if(incomplete){setTab('library');setExpanded(incomplete.id);setValidationMessage('Add a name and at least one muscle group to every exercise before saving.');return}
+    if(!draft.days.length){setValidationMessage('Add at least one training day before saving.');return}
     onSave(draft)
   }
 
   return <div className="mb-28">
+    <Modal open={Boolean(validationMessage)} title="Program needs attention" description={validationMessage} onClose={()=>setValidationMessage('')}><DialogActions><button className={primaryButton} onClick={()=>setValidationMessage('')}>Review program</button></DialogActions></Modal>
     {!editingExercise&&<nav className="grid grid-cols-2 gap-1 rounded-2xl border border-black/10 bg-black/[.03] p-1 dark:border-white/10 dark:bg-white/[.06]">{tabs.map(({id,label,Icon,count})=><button key={id} onClick={()=>{setTab(id);setExpanded(null)}} className={`rounded-xl px-2 py-2.5 transition ${tab===id?'bg-white text-black shadow-sm dark:bg-white dark:text-black':'text-black/45 dark:text-white/45'}`}><span className="flex items-center justify-center gap-1.5 text-xs font-semibold"><Icon size={14}/>{label}<span className="font-normal opacity-50">{count}</span></span></button>)}</nav>}
     <div className="mt-4 space-y-2">
       {tab==='plan'&&draft.days.map((day,i)=><EditorCard key={day.id} open={expanded===day.id} onToggle={()=>setExpanded(expanded===day.id?null:day.id)} title={day.name} titlePlaceholder={day.isRestDay?'Recovery':'Push day'} onTitleChange={name=>update(s=>{const x=s.days.find(x=>x.id===day.id);if(x)x.name=name})} eyebrow={WEEKDAYS[i%7]} summary={day.isRestDay?'Rest':`${day.exerciseIds.length} exercises`}>
