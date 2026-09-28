@@ -1,108 +1,48 @@
-
 import React from 'react'
-import { CheckCircle2, SkipForward } from 'lucide-react'
+import { Check, CheckCircle2, ChevronDown, Pause, Play, SkipForward, X } from 'lucide-react'
 import { AppState } from '../lib/storage'
 
-type Props = {
-  state: AppState
-  onMark: ()=>void
-  onDoTomorrow: ()=>void
-  onSwitchToNextDay: ()=>void
-  onEndWorkout: ()=>void
-  actionState: 'idle'|'in-progress'|'ready-next-day'
-  actionLabel: string
-  lastWorkoutDate: string
-}
+type Rating='hard'|'right'|'easy'
+type Props={state:AppState;onMark:()=>void;onDoTomorrow:()=>void;onFinishWorkout:()=>void;onEndWorkout:()=>void;isWorkoutActive:boolean;elapsedWorkoutSeconds:number;isWorkoutPaused:boolean;onToggleWorkoutPause:()=>void;exerciseSecondsRemaining:number;restSecondsRemaining:number;isResting:boolean;restNextExerciseId:string;onSkipRest:()=>void;activeExerciseId:string;activeSet:number;completedExerciseIds:string[];onSelectExercise:(id:string)=>void;ratingExerciseId:string|null;onCompleteExercise:(id:string)=>void;onRateExercise:(rating:Rating)=>void;lastWorkoutDate:string}
+const clock=(s:number)=>`${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`
+const dateLabel=(v:string)=>v?new Date(`${v}T00:00:00`).toLocaleDateString(undefined,{month:'short',day:'numeric'}):'Never'
 
-function formatLastWorkout(value: string) {
-  if (!value) return 'No workout logged yet'
-  const parsed = new Date(`${value}T00:00:00`)
-  if (Number.isNaN(parsed.getTime())) return value
-  return parsed.toLocaleDateString(undefined, {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  })
-}
+export default function TodayCard(p:Props){
+  const {state,onMark,onDoTomorrow,onFinishWorkout,onEndWorkout,isWorkoutActive,elapsedWorkoutSeconds,isWorkoutPaused,onToggleWorkoutPause,exerciseSecondsRemaining,restSecondsRemaining,isResting,restNextExerciseId,onSkipRest,activeExerciseId,activeSet,completedExerciseIds,onSelectExercise,ratingExerciseId,onCompleteExercise,onRateExercise,lastWorkoutDate}=p
+  const day=state.days[0]
+  if(!day)return <div className="rounded-xl border p-5">No plan configured.</div>
+  const configuredGroups=[...new Set(day.muscleGroupIds)].map(id=>state.muscleGroups.find(g=>g.id===id)).filter(Boolean)
+  const ids=[...new Set(configuredGroups.flatMap(g=>g?.exerciseIds||[]))]
+  const exercises=ids.map(id=>state.exercises.find(e=>e.id===id)).filter(Boolean)
+  const groups=configuredGroups.filter(group=>group!.exerciseIds.some(id=>ids.includes(id)))
+  const active=state.exercises.find(e=>e.id===activeExerciseId)
+  const ratingExercise=state.exercises.find(e=>e.id===ratingExerciseId)
+  const restNextExercise=state.exercises.find(e=>e.id===restNextExerciseId)
+  const done=ids.filter(id=>completedExerciseIds.includes(id)).length
+  const progress=ids.length?done/ids.length*100:0
 
-export default function TodayCard({state, onMark, onDoTomorrow, onSwitchToNextDay, onEndWorkout, actionState, actionLabel, lastWorkoutDate}: Props){
-  if(!state.split.length) {
-    return <div className="bg-white dark:bg-black border border-black/20 dark:border-white/30 rounded-lg p-3">No split configured.</div>
-  }
-  const splitItem = state.split[0] ?? {name: 'Unconfigured'}
-  const label = splitItem.name
-  const upcoming = state.split.slice(1)
-  const previewCount = Math.min(2, upcoming.length)
-  const nextTwo = Array.from({ length: previewCount }, (_, i) => ({
-    offset: i + 1,
-    name: upcoming[i]?.name ?? `Workout ${i + 2}`,
-  }))
+  if(day.isRestDay)return <section className="flex min-h-[55vh] flex-col justify-between rounded-2xl border border-black/15 p-6 dark:border-white/20"><div><div className="text-[10px] font-semibold uppercase tracking-[.2em] opacity-45">Today's plan</div><h2 className="mt-3 text-5xl font-black leading-none">{day.name||'Rest day'}</h2><p className="mt-4 max-w-sm text-sm leading-relaxed opacity-55">Recovery is part of the program. Take it easy, stay hydrated, and add some gentle mobility or walking if it feels good.</p></div><div><div className="mb-4 grid grid-cols-2 gap-2 text-center text-xs"><div className="rounded-xl bg-black/[.04] p-3 dark:bg-white/[.07]"><b className="block text-lg">7–9h</b><span className="opacity-45">Sleep</span></div><div className="rounded-xl bg-black/[.04] p-3 dark:bg-white/[.07]"><b className="block text-lg">Easy</b><span className="opacity-45">Movement</span></div></div><button onClick={onDoTomorrow} className="w-full rounded-xl bg-black py-3 font-semibold text-white dark:bg-white dark:text-black">Move to tomorrow</button></div></section>
 
-  return (
-    <div className="mb-3 space-y-3">
-      <div className="bg-white dark:bg-black p-6 rounded-lg border border-black/20 dark:border-white/30">
-        <div className="text-xs uppercase tracking-wide text-black/60 dark:text-white/60">Today</div>
-        <div className="text-5xl font-extrabold leading-[0.95] text-black dark:text-white mt-1">{label}</div>
-
-        {splitItem.description && <div className="text-sm leading-relaxed whitespace-pre-line text-black/85 dark:text-white/85 mt-3 p-3 border-t border-black/15 dark:border-white/20">{splitItem.description}</div>}
-
-        {actionState === 'in-progress' ? (
-          <div className="mt-3">
-            <button
-              className="w-full py-2 bg-black text-white dark:bg-white dark:text-black rounded-md border border-black dark:border-white text-sm font-medium flex items-center justify-center gap-2 opacity-70"
-              disabled
-            >
-              <CheckCircle2 size={18} />
-              <span>{actionLabel}</span>
-            </button>
-            <button
-              className="w-full mt-2 py-1.5 rounded-md border border-black/20 dark:border-white/30 text-xs text-black/70 dark:text-white/70"
-              onClick={onEndWorkout}
-            >
-              End workout early
-            </button>
-          </div>
-        ) : actionState === 'ready-next-day' ? (
-          <div className="mt-1">
-            <button
-              className="w-full py-2 bg-black text-white dark:bg-white dark:text-black rounded-md border border-black dark:border-white text-sm font-medium flex flex-col items-center justify-center gap-0.5"
-              onClick={onSwitchToNextDay}
-            >
-              <span>{actionLabel}</span>
-            </button>
-            <span className="text-[10px] opacity-80 ">Last workout: {formatLastWorkout(lastWorkoutDate)}</span>
-          </div>
-        ) : (
-          <div className="mt-3 grid grid-cols-2 gap-2">
-            <button
-              className="w-full py-2 bg-black text-white dark:bg-white dark:text-black rounded-md border border-black dark:border-white text-sm flex items-center justify-center gap-2"
-              onClick={onMark}
-            >
-              <CheckCircle2 size={16} />
-              <span>On it</span>
-            </button>
-            <button className="w-full py-2 rounded-md border border-black/20 dark:border-white/30 text-sm flex items-center justify-center gap-2" onClick={onDoTomorrow}>
-              <SkipForward size={16} />
-              <span>I'll do it tom</span>
-            </button>
-          </div>
-        )}
-      </div>
-
-      {nextTwo.length > 0 && (
-        <div className="bg-white dark:bg-black p-4 rounded-lg border border-black/20 dark:border-white/30">
-          <div className="text-xs uppercase tracking-wide text-black/60 dark:text-white/60">Coming Up</div>
-          <div className="mt-2 grid grid-cols-2 gap-2">
-            {nextTwo.map((d) => (
-              <div key={d.offset} className="rounded-md border border-black/10 dark:border-white/15 p-2.5 bg-black/[0.02] dark:bg-white/[0.03]">
-                <div className="text-[10px] font-medium tracking-wide text-black/55 dark:text-white/55">Up Next {d.offset}</div>
-                <div className="text-sm font-semibold text-black dark:text-white truncate mt-0.5">{d.name}</div>
-              </div>
-            ))}
-          </div>
+  if(isWorkoutActive)return <div className="fixed inset-0 z-40 flex h-[100dvh] flex-col overflow-hidden bg-neutral-950 text-white">
+    <header className="flex shrink-0 items-center justify-between gap-3 px-5 pb-4 pt-[max(18px,env(safe-area-inset-top))]"><div className="min-w-0"><div className="truncate text-[10px] font-bold uppercase tracking-[.22em] text-white/40">{day.name}</div><div className="mt-1 text-sm text-white/75">Exercise {Math.min(done+1,ids.length)} of {ids.length}</div></div><div className="ml-auto flex items-center gap-2"><button onClick={onToggleWorkoutPause} aria-label={isWorkoutPaused?'Resume workout':'Pause workout'} className="flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-2"><span className="font-mono text-sm font-semibold tabular-nums">{clock(elapsedWorkoutSeconds)}</span>{isWorkoutPaused?<Play size={16} fill="currentColor"/>:<Pause size={16} fill="currentColor"/>}</button><button onClick={onEndWorkout} aria-label="Cancel workout" className="rounded-full border border-white/15 bg-white/5 p-2.5"><X size={19}/></button></div></header>
+    <div className="mx-5 h-1 shrink-0 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full bg-white transition-all" style={{width:`${progress}%`}}/></div>
+    <main className="flex min-h-0 flex-1 flex-col overflow-y-auto px-5 pb-[max(14px,env(safe-area-inset-bottom))] pt-3">
+      {isResting?<section className="my-auto flex flex-col items-center py-8 text-center"><div className="text-[10px] font-bold uppercase tracking-[.28em] text-white/40">Rest timer</div><div className="mt-3 font-mono text-[clamp(5rem,28vw,9rem)] font-black leading-none tracking-[-.08em] tabular-nums">{clock(restSecondsRemaining)}</div><div className="mt-5 rounded-2xl border border-white/10 bg-white/[.05] px-5 py-3"><div className="text-[9px] font-bold uppercase tracking-widest text-white/35">Up next</div><div className="mt-1 text-lg font-semibold">{restNextExercise?.name||'Next set'}</div></div><button disabled={isWorkoutPaused} onClick={onSkipRest} className="mt-8 rounded-full border border-white/20 px-6 py-3 text-sm font-semibold disabled:opacity-35">{isWorkoutPaused?'Resume workout first':'Skip rest'}</button></section>:active?<>
+        <div className="flex flex-1 flex-col justify-center py-3 text-center">{active.tracking==='timed'?<><div className="text-[10px] font-bold uppercase tracking-[.24em] text-white/35">Set {activeSet} of {active.sets||1}</div><div className="mt-1 font-mono text-[clamp(3.75rem,21vw,7rem)] font-black leading-none tracking-[-.08em] text-white tabular-nums">{clock(exerciseSecondsRemaining)}</div><div className="mt-2 text-[11px] text-white/30">{isWorkoutPaused?'Workout paused':`Workout elapsed · ${clock(elapsedWorkoutSeconds)}`}</div></>:<div className="text-[11px] font-bold uppercase tracking-[.24em] text-white/60">{isWorkoutPaused?'Paused · ':''}Set {activeSet} of {active.sets||1}</div>}
+          <section className="mx-auto mt-5 w-full max-w-md rounded-3xl border border-white/10 bg-white/[.06] p-5"><h2 className="text-3xl font-bold leading-tight">{active.name}</h2><div className="mt-2 font-semibold text-white/75">{active.tracking==='timed'?`${active.durationSeconds||30}s × ${active.sets||3} sets`:`${active.sets||3} sets × ${active.reps||'8–12'}`}{active.equipment?` · ${active.equipment}`:''}</div>{active.instructions&&<p className="mt-4 text-sm leading-relaxed text-white/45">{active.instructions}</p>}</section>
+          {active.commonMistakes&&<div className="mx-auto mt-3 w-full max-w-md rounded-2xl border border-white/10 px-4 py-3 text-left"><div className="text-[9px] font-bold uppercase tracking-widest text-white/35">Avoid</div><p className="mt-1 text-xs leading-relaxed text-white/55">{active.commonMistakes}</p></div>}
         </div>
-      )}
-    </div>
-  )
+        <button disabled={isWorkoutPaused} onClick={()=>onCompleteExercise(active.id)} className="flex w-full shrink-0 items-center justify-center gap-2 rounded-2xl bg-white py-4 font-bold text-black disabled:cursor-not-allowed disabled:opacity-35"><CheckCircle2 size={20}/>{isWorkoutPaused?'Resume to continue':activeSet<(active.sets||1)?'Complete set':'Complete final set'}</button>
+      </>:<section className="my-auto text-center"><div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-white/10 text-white"><Check size={40}/></div><h2 className="mt-5 text-4xl font-black">Workout complete</h2><p className="mt-2 text-white/45">Every exercise is checked off.</p><button onClick={onFinishWorkout} className="mt-8 w-full rounded-2xl bg-white py-4 text-lg font-bold text-black">Save and finish</button></section>}
+      <div className="mt-3 flex shrink-0 gap-2 overflow-x-auto py-1">{exercises.map((ex,i)=>{const finished=completedExerciseIds.includes(ex!.id),selected=ex!.id===activeExerciseId;return <button key={ex!.id} disabled={finished||isResting||isWorkoutPaused} onClick={()=>onSelectExercise(ex!.id)} className={`min-w-[116px] rounded-xl border px-3 py-2.5 text-left ${selected?'border-white bg-white/10':'border-white/10 bg-white/[.03]'} ${finished||isResting?'opacity-30':''}`}><div className={`text-[9px] font-bold uppercase tracking-wider ${selected?'text-white':'text-white/35'}`}>{finished?'Completed':`Exercise ${i+1}`}</div><div className="mt-1 truncate text-sm font-semibold">{ex!.name}</div></button>})}</div>
+    </main>
+    {ratingExercise&&<div className="absolute inset-0 z-10 flex items-end justify-center bg-black/80 p-3 backdrop-blur-sm sm:items-center"><div className="w-full max-w-md rounded-3xl border border-white/10 bg-neutral-900 p-5 shadow-2xl"><div className="text-[10px] font-bold uppercase tracking-[.2em] text-white/55">Set {activeSet} complete</div><h3 className="mt-2 text-2xl font-bold">How did it feel?</h3><p className="mt-1 text-sm text-white/45">This updates {ratingExercise.name} everywhere it appears.</p><div className="mt-5 grid grid-cols-3 gap-2"><RatingButton label="Too hard" note={ratingExercise.tracking==='timed'?'−5 sec':'−2 reps'} onClick={()=>onRateExercise('hard')}/><RatingButton label="Just right" note="No change" primary onClick={()=>onRateExercise('right')}/><RatingButton label="Too easy" note={ratingExercise.tracking==='timed'?'+5 sec':'+2 reps'} onClick={()=>onRateExercise('easy')}/></div></div></div>}
+  </div>
+
+  return <div className="mb-3 space-y-3">
+    <section className="overflow-hidden rounded-2xl bg-black text-white dark:bg-white dark:text-black"><div className="p-6"><div className="flex justify-between gap-3 text-[10px] uppercase tracking-widest opacity-50"><span>Today's session</span><span className="shrink-0">{ids.length} exercises</span></div><h2 className="mt-3 break-words text-5xl font-black leading-none">{day.name}</h2>{groups.length>0&&<div className="mt-4 flex flex-wrap gap-1.5">{groups.map(g=><span key={g!.id} className="max-w-full truncate rounded-full border border-current/20 px-2.5 py-1 text-xs">{g!.name}</span>)}</div>}</div><div className="grid grid-cols-[1fr_auto] gap-2 border-t border-white/15 p-3 dark:border-black/15"><button onClick={onMark} className="flex items-center justify-center gap-2 rounded-xl bg-white py-3 font-bold text-black dark:bg-black dark:text-white"><CheckCircle2 size={18}/>Start workout</button><button onClick={onDoTomorrow} className="rounded-xl border border-current/20 px-4"><SkipForward size={18}/></button></div></section>
+    <section className="rounded-2xl border border-black/15 p-4 dark:border-white/20"><div className="mb-3 flex justify-between"><div><div className="text-[10px] uppercase tracking-widest opacity-45">Workout</div><h3 className="font-semibold">Exercise list</h3></div><div className="text-right text-[10px] opacity-45">Last workout<br/><b>{dateLabel(lastWorkoutDate)}</b></div></div><div className="border-t border-black/10 pt-3 dark:border-white/10">{exercises.map((ex,i)=>{if(!ex)return null;const exerciseGroups=groups.filter(group=>group!.exerciseIds.includes(ex.id));return <details key={ex.id} className="group mb-2 rounded-xl bg-black/[.035] dark:bg-white/[.07]"><summary className="flex cursor-pointer list-none items-center gap-3 p-3"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-current/10 text-xs">{i+1}</span><span className="min-w-0 flex-1"><b className="block truncate text-sm">{ex.name}</b><span className="text-xs opacity-45">{ex.tracking==='timed'?`${ex.durationSeconds||30}s × ${ex.sets||3} sets`:`${ex.sets||3} sets × ${ex.reps||'8–12'}`}</span><span className="mt-1.5 flex flex-wrap gap-1">{exerciseGroups.map(group=><span key={group!.id} className="rounded-full border border-current/15 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide opacity-60">{group!.name}</span>)}</span></span>{ex.instructions&&<ChevronDown size={16} className="shrink-0"/>}</summary>{ex.instructions&&<p className="border-t border-current/10 p-3 text-sm opacity-55">{ex.instructions}</p>}</details>})}</div></section>
+  </div>
 }
+
+function RatingButton({label,note,primary,onClick}:{label:string;note:string;primary?:boolean;onClick:()=>void}){return <button onClick={onClick} className={`rounded-2xl border p-3 text-center ${primary?'border-white bg-white/10':'border-white/10 bg-white/5'}`}><b className="block text-sm">{label}</b><span className={`mt-1 block text-[10px] ${primary?'text-white/70':'text-white/40'}`}>{note}</span></button>}

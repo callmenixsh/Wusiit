@@ -5,39 +5,41 @@ import QueueEditor from './pages/QueueEditor'
 import History from './pages/History'
 import Settings from './pages/Settings'
 import { loadState, saveState, exportJSON, importJSON, AppState } from './lib/storage'
-import { addHistoryForCurrentDay, advanceToNextDay, setSplit } from './lib/queue'
+import { addHistoryForCurrentDay, advanceToNextDay } from './lib/queue'
 import { localDateString } from './lib/dates'
 
 const THEME_KEY = 'wusiit.theme'
 const WORKOUT_TIMER_END_KEY = 'wusiit.workout.timerEnd'
-const WORKOUT_MINUTES_KEY = 'wusiit.workout.minutes'
-const LEGACY_WORKOUT_HOURS_KEY = 'wusiit.workout.hours'
+const WORKOUT_START_KEY = 'wusiit.workout.startedAt'
+const WORKOUT_PAUSED_AT_KEY = 'wusiit.workout.pausedAt'
+const WORKOUT_PAUSED_TOTAL_KEY = 'wusiit.workout.pausedTotal'
 const LAST_WORKOUT_DATE_KEY = 'wusiit.lastWorkoutDate'
+const COMPLETED_EXERCISES_KEY = 'wusiit.workout.completed'
+const ACTIVE_EXERCISE_KEY = 'wusiit.workout.activeExercise'
+const EXERCISE_TIMER_END_KEY = 'wusiit.workout.exerciseTimerEnd'
+const REST_SECONDS = 60
+
+type PendingRest = { exerciseId:string; set:number; durationSeconds:number }
 
 type ThemePref = 'system'|'light'|'dark'
 
 export default function App(){
   const [state, setState] = useState<AppState>(()=>loadState())
   const [view, setView] = useState<'home'|'edit'|'history'|'settings'>('home')
-  const [workoutTimerEnd, setWorkoutTimerEnd] = useState<number>(()=>{
-    const raw = localStorage.getItem(WORKOUT_TIMER_END_KEY)
-    return raw ? Number(raw) || 0 : 0
-  })
-  const [workoutMinutes, setWorkoutMinutes] = useState<number | null>(()=>{
-    const minuteRaw = localStorage.getItem(WORKOUT_MINUTES_KEY)
-    const hourRaw = localStorage.getItem(LEGACY_WORKOUT_HOURS_KEY)
-    if(minuteRaw){
-      const parsed = Number(minuteRaw)
-      if(Number.isFinite(parsed) && parsed > 0) return parsed
-    }
-    if(hourRaw){
-      const parsedHours = Number(hourRaw)
-      if(Number.isFinite(parsedHours) && parsedHours > 0) return Math.round(parsedHours * 60)
-    }
-    return 60
-  })
+  const [workoutStartedAt, setWorkoutStartedAt] = useState<number>(()=>Number(localStorage.getItem(WORKOUT_START_KEY))||0)
+  const [workoutPausedAt, setWorkoutPausedAt] = useState<number>(()=>Number(localStorage.getItem(WORKOUT_PAUSED_AT_KEY))||0)
+  const [workoutPausedTotal, setWorkoutPausedTotal] = useState<number>(()=>Number(localStorage.getItem(WORKOUT_PAUSED_TOTAL_KEY))||0)
   const [lastWorkoutDate, setLastWorkoutDate] = useState<string>(()=>localStorage.getItem(LAST_WORKOUT_DATE_KEY) || '')
   const [nowTs, setNowTs] = useState<number>(()=>Date.now())
+  const [completedExerciseIds, setCompletedExerciseIds] = useState<string[]>(()=>{
+    try{return JSON.parse(localStorage.getItem(COMPLETED_EXERCISES_KEY)||'[]')}catch{return[]}
+  })
+  const [activeExerciseId, setActiveExerciseId] = useState(()=>localStorage.getItem(ACTIVE_EXERCISE_KEY)||'')
+  const [exerciseTimerEnd, setExerciseTimerEnd] = useState(()=>Number(localStorage.getItem(EXERCISE_TIMER_END_KEY))||0)
+  const [ratingExerciseId, setRatingExerciseId] = useState<string|null>(null)
+  const [activeSet, setActiveSet] = useState(1)
+  const [restTimerEnd, setRestTimerEnd] = useState(0)
+  const [pendingRest, setPendingRest] = useState<PendingRest|null>(null)
   const [themePref, setThemePref] = useState<ThemePref>(()=>{
     const t = localStorage.getItem(THEME_KEY)
     return (t === 'light' || t === 'dark') ? t : 'system'
@@ -67,14 +69,10 @@ export default function App(){
     saveState(state)
   },[state])
 
-  useEffect(()=>{
-    localStorage.setItem(WORKOUT_TIMER_END_KEY, String(workoutTimerEnd))
-  }, [workoutTimerEnd])
+  useEffect(()=>{workoutStartedAt?localStorage.setItem(WORKOUT_START_KEY,String(workoutStartedAt)):localStorage.removeItem(WORKOUT_START_KEY)},[workoutStartedAt])
+  useEffect(()=>{workoutPausedAt?localStorage.setItem(WORKOUT_PAUSED_AT_KEY,String(workoutPausedAt)):localStorage.removeItem(WORKOUT_PAUSED_AT_KEY)},[workoutPausedAt])
+  useEffect(()=>localStorage.setItem(WORKOUT_PAUSED_TOTAL_KEY,String(workoutPausedTotal)),[workoutPausedTotal])
 
-  useEffect(()=>{
-    if(workoutMinutes === null) localStorage.removeItem(WORKOUT_MINUTES_KEY)
-    else localStorage.setItem(WORKOUT_MINUTES_KEY, String(workoutMinutes))
-  }, [workoutMinutes])
 
   useEffect(()=>{
     if(lastWorkoutDate) localStorage.setItem(LAST_WORKOUT_DATE_KEY, lastWorkoutDate)
@@ -82,91 +80,166 @@ export default function App(){
   }, [lastWorkoutDate])
 
   useEffect(()=>{
-    const id = window.setInterval(()=>setNowTs(Date.now()), 30000)
+    const id = window.setInterval(()=>setNowTs(Date.now()), 1000)
     return ()=>window.clearInterval(id)
   },[])
 
-  function handleStartWorkout(){
-    if(workoutTimerEnd > 0) return
-    const today = localDateString()
-    const minutes = workoutMinutes ?? 60
-    setState(prev => {
-      const next = { ...prev }
-      addHistoryForCurrentDay(next)
-      return next
-    })
-    setLastWorkoutDate(today)
-    setWorkoutTimerEnd(Date.now() + minutes * 60 * 1000)
+  useEffect(()=>localStorage.setItem(COMPLETED_EXERCISES_KEY,JSON.stringify(completedExerciseIds)),[completedExerciseIds])
+  useEffect(()=>{activeExerciseId?localStorage.setItem(ACTIVE_EXERCISE_KEY,activeExerciseId):localStorage.removeItem(ACTIVE_EXERCISE_KEY)},[activeExerciseId])
+  useEffect(()=>localStorage.setItem(EXERCISE_TIMER_END_KEY,String(exerciseTimerEnd)),[exerciseTimerEnd])
+
+  function currentExerciseIds(source=state){
+    const day=source.days[0]
+    return [...new Set(day?.muscleGroupIds.flatMap(groupId=>source.muscleGroups.find(g=>g.id===groupId)?.exerciseIds||[])||[])]
   }
 
-  function handleSwitchToNextDay(){
-    if(!(workoutTimerEnd > 0 && nowTs >= workoutTimerEnd)) return
-    setState(prev => {
-      const next = { ...prev }
-      advanceToNextDay(next)
-      return next
-    })
-    setWorkoutTimerEnd(0)
+  function startExercise(id:string){
+    const exercise=state.exercises.find(ex=>ex.id===id)
+    setActiveExerciseId(id)
+    setActiveSet(1)
+    setExerciseTimerEnd(exercise?.tracking==='timed'?Date.now()+(exercise.durationSeconds||30)*1000:0)
+  }
+
+  function handleCompleteExercise(id:string){
+    setRatingExerciseId(id)
+  }
+
+  function handleStartWorkout(){
+    if(workoutStartedAt > 0) return
+    setCompletedExerciseIds([])
+    setWorkoutStartedAt(Date.now())
+    setWorkoutPausedAt(0)
+    setWorkoutPausedTotal(0)
+    const first=currentExerciseIds()[0]
+    if(first)startExercise(first)
+  }
+
+  function handleFinishWorkout(){
+    if(workoutStartedAt <= 0) return
+    setState(prev=>{const next:AppState=JSON.parse(JSON.stringify(prev));addHistoryForCurrentDay(next);advanceToNextDay(next);return next})
+    setLastWorkoutDate(localDateString())
+    setWorkoutStartedAt(0);setWorkoutPausedAt(0);setWorkoutPausedTotal(0);setExerciseTimerEnd(0);setRestTimerEnd(0);setPendingRest(null);setActiveExerciseId('');setCompletedExerciseIds([]);setRatingExerciseId(null)
   }
 
   function handleDoTomorrow(){
-    if(state.split.length < 2) return
+    if(state.days.length < 2) return
     setState(prev => {
-      const split = [...prev.split]
-      const first = split.shift()
-      if(first) split.push(first)
-      return { ...prev, split }
+      const days = [...prev.days]
+      const first = days.shift()
+      if(first) days.push(first)
+      return { ...prev, days }
     })
   }
 
   function handleEndWorkout(){
-    if(!(workoutTimerEnd > 0)) return
-    if(!confirm('End workout and reset the timer? Today\'s session stays in history.')) return
-    setWorkoutTimerEnd(0)
+    if(!(workoutStartedAt > 0)) return
+    if(!confirm('Cancel this workout? It will not be added to history.')) return
+    setWorkoutStartedAt(0)
+    setWorkoutPausedAt(0)
+    setWorkoutPausedTotal(0)
+    setExerciseTimerEnd(0)
+    setRestTimerEnd(0)
+    setPendingRest(null)
+    setActiveExerciseId('')
+    setCompletedExerciseIds([])
   }
 
-  const isWorkoutInProgress = workoutTimerEnd > 0 && nowTs < workoutTimerEnd
-  const isReadyForNextDay = workoutTimerEnd > 0 && nowTs >= workoutTimerEnd
-  const minutesRemaining = Math.max(0, Math.ceil((workoutTimerEnd - nowTs) / (60 * 1000)))
-  const homeActionState: 'idle'|'in-progress'|'ready-next-day' = isWorkoutInProgress
-    ? 'in-progress'
-    : isReadyForNextDay
-      ? 'ready-next-day'
-      : 'idle'
-  const homeActionLabel = isReadyForNextDay
-    ? 'Switch to next day'
-    : `Workout in progress (${minutesRemaining}m left)`
+  function handleToggleWorkoutPause(){
+    if(!workoutStartedAt)return
+    if(workoutPausedAt){
+      const pausedFor=Date.now()-workoutPausedAt
+      setWorkoutPausedTotal(value=>value+pausedFor)
+      if(exerciseTimerEnd)setExerciseTimerEnd(value=>value+pausedFor)
+      if(restTimerEnd)setRestTimerEnd(value=>value+pausedFor)
+      setWorkoutPausedAt(0)
+    }else setWorkoutPausedAt(Date.now())
+  }
 
-  function handleWorkoutMinutesChange(value: string){
-    const trimmed = value.trim()
-    if(trimmed === ''){
-      setWorkoutMinutes(null)
+  const isWorkoutActive = workoutStartedAt > 0
+  const isWorkoutPaused = workoutPausedAt > 0
+  const timerNow=workoutPausedAt||Date.now()
+  const elapsedWorkoutSeconds = workoutStartedAt?Math.max(0,Math.floor((timerNow-workoutStartedAt-workoutPausedTotal)/1000)):0
+  const exerciseSecondsRemaining = Math.max(0,Math.ceil((exerciseTimerEnd-timerNow)/1000))
+  const restSecondsRemaining = Math.max(0,Math.ceil((restTimerEnd-timerNow)/1000))
+
+  function finishRest(){
+    if(!pendingRest)return
+    const next=pendingRest
+    setPendingRest(null)
+    setRestTimerEnd(0)
+    setActiveExerciseId(next.exerciseId)
+    setActiveSet(next.set)
+    setExerciseTimerEnd(next.durationSeconds?Date.now()+next.durationSeconds*1000:0)
+  }
+
+  useEffect(()=>{
+    if(pendingRest&&restTimerEnd>0&&!workoutPausedAt&&nowTs>=restTimerEnd)finishRest()
+  },[nowTs,restTimerEnd,workoutPausedAt,pendingRest])
+
+  function shiftReps(reps:string|undefined,delta:number){
+    if(!reps)return reps
+    return reps.replace(/\d+/g,value=>String(Math.max(1,Number(value)+delta)))
+  }
+
+  function handleExerciseRating(rating:'hard'|'right'|'easy'){
+    if(!ratingExerciseId)return
+    const finishedId=ratingExerciseId
+    const exercise=state.exercises.find(ex=>ex.id===finishedId)
+    if(rating!=='right')setState(prev=>({...prev,exercises:prev.exercises.map(ex=>ex.id===finishedId?(ex.tracking==='timed'?{...ex,durationSeconds:Math.max(5,(ex.durationSeconds||30)+(rating==='easy'?5:-5))}:{...ex,reps:shiftReps(ex.reps,rating==='easy'?2:-2)}):ex)}))
+    setRatingExerciseId(null)
+    if(exercise&&activeSet<(exercise.sets||1)){
+      const duration=exercise.tracking==='timed'?Math.max(5,(exercise.durationSeconds||30)+(rating==='easy'?5:rating==='hard'?-5:0)):0
+      setExerciseTimerEnd(0)
+      setPendingRest({exerciseId:finishedId,set:activeSet+1,durationSeconds:duration})
+      setRestTimerEnd(Date.now()+REST_SECONDS*1000)
       return
     }
-    const parsed = Number(trimmed)
-    if(!Number.isFinite(parsed) || parsed < 1) return
-    setWorkoutMinutes(Math.min(720, Math.round(parsed)))
+    const completed=[...new Set([...completedExerciseIds,finishedId])]
+    setCompletedExerciseIds(completed)
+    const next=currentExerciseIds().find(id=>!completed.includes(id))
+    if(next){
+      const nextExercise=state.exercises.find(ex=>ex.id===next)
+      setExerciseTimerEnd(0)
+      setPendingRest({exerciseId:next,set:1,durationSeconds:nextExercise?.tracking==='timed'?(nextExercise.durationSeconds||30):0})
+      setRestTimerEnd(Date.now()+REST_SECONDS*1000)
+    }else{setActiveExerciseId('');setExerciseTimerEnd(0)}
   }
 
-  function handleSaveSplit(items: {name:string,description?:string}[]){
-    const next = {...state}
-    setSplit(next, items)
+  function handleSaveProgram(next: AppState){
     setState(next)
   }
 
-  function handleUseTemplate(templateId: 'ppl'|'5day'|'arnold'){
+  function handleUseTemplate(templateId: 'ppl'|'5day'|'arnold'|'home'){
     let preset: {name:string,description?:string}[]
-    if(templateId === 'ppl'){
+    if(templateId === 'home'){
+      preset = [
+        {name:'Full Body',description:'Bodyweight squat\nPush-up\nGlute bridge\nSuperman'},
+        {name:'Core + Conditioning',description:'Mountain climbers\nForearm plank\nDead bug\nJumping jacks'},
+        {name:'Recovery',description:'__REST__'},
+        {name:'Lower Body + Stability',description:'Reverse lunge\nSingle-leg glute bridge\nCalf raise\nWall sit'},
+        {name:'Full Body',description:'Bodyweight squat\nPush-up\nGlute bridge\nSuperman'},
+        {name:'Mobility + Rest',description:'__REST__'},
+        {name:'Rest day',description:'__REST__'}
+      ]
+    } else if(templateId === 'ppl'){
       preset = [
         {name:'Push', description:'Bench press\nIncline dumbbell press\nShoulder press\nLateral raises\nTriceps pushdown'},
         {name:'Pull', description:'Pull-ups\nLat pulldown\nBarbell row\nFace pull\nBicep curls'},
-        {name:'Legs', description:'Squats\nRomanian deadlift\nLeg press\nLeg curls\nCalf raises'}
+        {name:'Legs', description:'Squats\nRomanian deadlift\nLeg press\nLeg curls\nCalf raises'},
+        {name:'Rest day',description:'__REST__'},
+        {name:'Push', description:'Bench press\nIncline dumbbell press\nShoulder press\nLateral raises\nTriceps pushdown'},
+        {name:'Pull', description:'Pull-ups\nLat pulldown\nBarbell row\nFace pull\nBicep curls'},
+        {name:'Rest day',description:'__REST__'}
       ]
     } else if(templateId === 'arnold'){
       preset = [
         {name:'Chest + Back', description:'Bench press\nIncline press\nPull-ups\nRows\nPulldowns'},
         {name:'Shoulders + Arms', description:'Overhead press\nLateral raises\nCurls\nSkull crushers\nHammer curls'},
-        {name:'Legs', description:'Squats\nLunges\nLeg press\nHamstring curls\nCalves'}
+        {name:'Legs', description:'Squats\nLunges\nLeg press\nHamstring curls\nCalves'},
+        {name:'Rest day',description:'__REST__'},
+        {name:'Chest + Back', description:'Bench press\nIncline press\nPull-ups\nRows\nPulldowns'},
+        {name:'Shoulders + Arms', description:'Overhead press\nLateral raises\nCurls\nSkull crushers\nHammer curls'},
+        {name:'Rest day',description:'__REST__'}
       ]
     } else {
       preset = [
@@ -174,7 +247,9 @@ export default function App(){
         {name:'Chest', description:'Bench flat\nBench incline\nBench decline\nFlys\nPushups'},
         {name:'Biceps', description:'Curls\nHammer\nBarbell\nPreacher'},
         {name:'Shoulder', description:'Press\nLateral\nFront\nShrugs'},
-        {name:'Legs', description:'Squats\nLunges\nExtensions\nPress\nCalves'}
+        {name:'Legs', description:'Squats\nLunges\nExtensions\nPress\nCalves'},
+        {name:'Rest day',description:'__REST__'},
+        {name:'Rest day',description:'__REST__'}
       ]
     }
     setTemplateDraftItems(preset)
@@ -216,7 +291,7 @@ export default function App(){
     if(!txt) return
     const parsed = importJSON(txt)
     if(!parsed) return alert('Invalid JSON')
-    const hasExistingData = state.history.length > 0 || state.split.some((s) => (s.name || '').trim())
+    const hasExistingData = state.history.length > 0 || state.days.length > 0
     if(hasExistingData && !confirm('Importing will replace all current data. Continue?')) return
     setState(parsed)
   }
@@ -224,16 +299,39 @@ export default function App(){
   function handleReset(){
     if(!confirm('Reset all data?')) return
     localStorage.removeItem('wdiit.state.v1')
+    localStorage.removeItem('wdiit.state.v2')
     localStorage.removeItem(WORKOUT_TIMER_END_KEY)
+    localStorage.removeItem(WORKOUT_START_KEY)
+    localStorage.removeItem(WORKOUT_PAUSED_AT_KEY)
+    localStorage.removeItem(WORKOUT_PAUSED_TOTAL_KEY)
     localStorage.removeItem(LAST_WORKOUT_DATE_KEY)
+    localStorage.removeItem(COMPLETED_EXERCISES_KEY)
+    localStorage.removeItem(ACTIVE_EXERCISE_KEY)
+    localStorage.removeItem(EXERCISE_TIMER_END_KEY)
     setState(loadState())
-    setWorkoutTimerEnd(0)
+    setWorkoutStartedAt(0)
+    setWorkoutPausedAt(0)
+    setWorkoutPausedTotal(0)
+    setCompletedExerciseIds([])
+    setActiveExerciseId('')
+    setExerciseTimerEnd(0)
     setLastWorkoutDate('')
   }
 
   function handleResetHistory(){
     if(!confirm('Reset history only?')) return
     setState(prev => ({...prev, history: []}))
+  }
+
+  function handleLogWeight(weight:number,date=localDateString()){
+    setState(prev=>({...prev,weightTracking:{...prev.weightTracking,entries:[
+      {id:`weight-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,7)}`,date,weight:Math.round(weight*10)/10},
+      ...prev.weightTracking.entries.filter(entry=>entry.date!==date)
+    ].sort((a,b)=>b.date.localeCompare(a.date))}}))
+  }
+
+  function handleDeleteWeight(id:string){
+    setState(prev=>({...prev,weightTracking:{...prev.weightTracking,entries:prev.weightTracking.entries.filter(entry=>entry.id!==id)}}))
   }
 
   return (
@@ -249,8 +347,8 @@ export default function App(){
             <button
               className={`p-2 rounded-md border ${view==='edit' ? 'bg-black text-white border-black dark:bg-white dark:text-black dark:border-white' : 'border-black/20 dark:border-white/30 bg-white dark:bg-black text-black dark:text-white'}`}
               onClick={()=>setView('edit')}
-              aria-label="Split"
-              title="Split"
+              aria-label="Program"
+              title="Program"
             >
               <ListTree size={18} strokeWidth={1.8} />
             </button>
@@ -279,28 +377,41 @@ export default function App(){
               state={state}
               onStartWorkout={handleStartWorkout}
               onDoTomorrow={handleDoTomorrow}
-              onSwitchToNextDay={handleSwitchToNextDay}
+              onFinishWorkout={handleFinishWorkout}
               onEndWorkout={handleEndWorkout}
-              actionState={homeActionState}
-              actionLabel={homeActionLabel}
+              isWorkoutActive={isWorkoutActive}
+              elapsedWorkoutSeconds={elapsedWorkoutSeconds}
+              isWorkoutPaused={isWorkoutPaused}
+              onToggleWorkoutPause={handleToggleWorkoutPause}
+              exerciseSecondsRemaining={exerciseSecondsRemaining}
+              restSecondsRemaining={restSecondsRemaining}
+              isResting={Boolean(pendingRest)}
+              restNextExerciseId={pendingRest?.exerciseId||''}
+              onSkipRest={finishRest}
+              activeExerciseId={activeExerciseId}
+              activeSet={activeSet}
+              completedExerciseIds={completedExerciseIds}
+              onSelectExercise={startExercise}
+              ratingExerciseId={ratingExerciseId}
+              onCompleteExercise={handleCompleteExercise}
+              onRateExercise={handleExerciseRating}
               lastWorkoutDate={lastWorkoutDate}
+              onLogWeight={handleLogWeight}
             />
           )}
           {view==='edit' && (
             <QueueEditor
               state={state}
-              onSave={handleSaveSplit}
+              onSave={handleSaveProgram}
               templateDraftItems={templateDraftItems}
               templateDraftToken={templateDraftToken}
               onTemplateDraftApplied={()=>setTemplateDraftItems(null)}
             />
           )}
-          {view==='history' && <History state={state} lastWorkoutDate={lastWorkoutDate} />}
+          {view==='history' && <History state={state} lastWorkoutDate={lastWorkoutDate} onLogWeight={handleLogWeight} onDeleteWeight={handleDeleteWeight} />}
 
           {view==='settings' && (
             <Settings
-              workoutMinutes={workoutMinutes}
-              onWorkoutMinutesChange={handleWorkoutMinutesChange}
               onOpenTemplates={()=>setIsTemplateModalOpen(true)}
               onExportClipboard={handleExportClipboard}
               onImport={handleImport}
@@ -316,6 +427,8 @@ export default function App(){
                 if(next === 'system') localStorage.removeItem(THEME_KEY)
                 else localStorage.setItem(THEME_KEY, next)
               }}
+              weightTrackingEnabled={state.weightTracking.enabled}
+              onToggleWeightTracking={()=>setState(prev=>({...prev,weightTracking:{...prev.weightTracking,enabled:!prev.weightTracking.enabled}}))}
             />
           )}
         </main>

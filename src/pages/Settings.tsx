@@ -1,11 +1,9 @@
 import React from 'react'
 import { Monitor, Moon, Sun } from 'lucide-react'
 
-type TemplateId = 'ppl' | '5day' | 'arnold'
+type TemplateId = 'ppl' | '5day' | 'arnold' | 'home'
 
 type SettingsProps = {
-  workoutMinutes: number | null
-  onWorkoutMinutesChange: (value: string) => void
   onOpenTemplates: () => void
   onExportClipboard: () => void | Promise<void>
   onImport: () => void
@@ -16,11 +14,11 @@ type SettingsProps = {
   onUseTemplate: (templateId: TemplateId) => void
   themePref: 'system' | 'light' | 'dark'
   onCycleTheme: () => void
+  weightTrackingEnabled: boolean
+  onToggleWeightTracking: () => void
 }
 
 export default function Settings({
-  workoutMinutes,
-  onWorkoutMinutesChange,
   onOpenTemplates,
   onExportClipboard,
   onImport,
@@ -31,6 +29,8 @@ export default function Settings({
   onUseTemplate,
   themePref,
   onCycleTheme,
+  weightTrackingEnabled,
+  onToggleWeightTracking,
 }: SettingsProps) {
   return (
     <>
@@ -55,18 +55,21 @@ export default function Settings({
         </div>
 
         <div className="rounded-xl border border-black/15 dark:border-white/25 p-4 bg-black/[0.015] dark:bg-white/[0.02]">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <div className="text-[11px] uppercase tracking-wider text-black/60 dark:text-white/60">Weight Tracking</div>
+              <div className="text-xs mt-1 text-black/65 dark:text-white/65">Weight history and weekly weigh-in reminders</div>
+            </div>
+            <div className="flex shrink-0 items-center">
+              <button type="button" role="switch" aria-checked={weightTrackingEnabled} aria-label="Weight tracking" onClick={onToggleWeightTracking} className={`relative h-7 w-12 shrink-0 rounded-full border transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-black/40 focus-visible:ring-offset-2 dark:focus-visible:ring-white/50 dark:focus-visible:ring-offset-black ${weightTrackingEnabled?'border-black bg-black dark:border-white dark:bg-white':'border-black/20 bg-black/15 dark:border-white/25 dark:bg-white/20'}`}>
+                <span aria-hidden="true" className={`absolute left-0 top-1 h-5 w-5 rounded-full shadow-sm transition-transform ${weightTrackingEnabled?'translate-x-6 bg-white dark:bg-black':'translate-x-1 bg-white dark:bg-black'}`} />
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-black/15 dark:border-white/25 p-4 bg-black/[0.015] dark:bg-white/[0.02]">
           <div className="text-[11px] uppercase tracking-wider text-black/60 dark:text-white/60">Workout Settings</div>
-          <label htmlFor="workout-minutes" className="block text-xs mt-3 text-black/70 dark:text-white/70">Workout Duration (Minutes)</label>
-          <input
-            id="workout-minutes"
-            type="number"
-            min={1}
-            max={720}
-            step={1}
-            value={workoutMinutes === null ? '' : workoutMinutes}
-            onChange={(e) => onWorkoutMinutesChange(e.target.value)}
-            className="mt-2 w-full rounded-lg border border-black/20 dark:border-white/30 bg-white dark:bg-black px-3 py-2.5 text-black dark:text-white focus:outline-none focus:ring-2 focus:ring-black/15 dark:focus:ring-white/25"
-          />
           <button className="mt-3 w-full py-2.5 rounded-lg bg-black text-white dark:bg-white dark:text-black border border-black dark:border-white" onClick={onOpenTemplates}>Use Templates</button>
         </div>
 
@@ -97,6 +100,10 @@ export default function Settings({
           <div className="relative w-full max-w-md rounded-lg border border-black/20 dark:border-white/30 bg-white dark:bg-black p-3">
             <div className="text-sm font-medium text-black dark:text-white">Choose Template</div>
             <div className="mt-2 grid gap-2">
+              <button className="w-full text-left rounded-md border-2 border-black dark:border-white px-3 py-2" onClick={() => onUseTemplate('home')}>
+                <div className="text-sm font-medium text-black dark:text-white">Home Workout</div>
+                <div className="text-xs text-black/60 dark:text-white/60">3-day bodyweight strength and conditioning plan</div>
+              </button>
               <button className="w-full text-left rounded-md border border-black/20 dark:border-white/30 px-3 py-2" onClick={() => onUseTemplate('ppl')}>
                 <div className="text-sm font-medium text-black dark:text-white">Push Pull Legs</div>
                 <div className="text-xs text-black/60 dark:text-white/60">Classic 3-day PPL split</div>
