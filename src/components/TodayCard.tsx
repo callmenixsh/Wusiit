@@ -11,10 +11,10 @@ export default function TodayCard(p:Props){
   const {state,onMark,onDoTomorrow,onFinishWorkout,onEndWorkout,isWorkoutActive,elapsedWorkoutSeconds,isWorkoutPaused,onToggleWorkoutPause,exerciseSecondsRemaining,restSecondsRemaining,isResting,restNextExerciseId,onSkipRest,activeExerciseId,activeSet,completedExerciseIds,onSelectExercise,ratingExerciseId,onCompleteExercise,onRateExercise,lastWorkoutDate}=p
   const day=state.days[0]
   if(!day)return <div className="rounded-xl border p-5">No plan configured.</div>
-  const configuredGroups=[...new Set(day.muscleGroupIds)].map(id=>state.muscleGroups.find(g=>g.id===id)).filter(Boolean)
-  const ids=[...new Set(configuredGroups.flatMap(g=>g?.exerciseIds||[]))]
+  const ids=[...new Set(day.exerciseIds)]
   const exercises=ids.map(id=>state.exercises.find(e=>e.id===id)).filter(Boolean)
-  const groups=configuredGroups.filter(group=>group!.exerciseIds.some(id=>ids.includes(id)))
+  const usedGroupIds=new Set(exercises.flatMap(ex=>ex?.muscleGroupIds||[]))
+  const groups=state.muscleGroups.filter(group=>usedGroupIds.has(group.id))
   const active=state.exercises.find(e=>e.id===activeExerciseId)
   const ratingExercise=state.exercises.find(e=>e.id===ratingExerciseId)
   const restNextExercise=state.exercises.find(e=>e.id===restNextExerciseId)

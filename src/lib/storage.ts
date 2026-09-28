@@ -1,10 +1,27 @@
 export type Exercise = { id:string; name:string; instructions?:string; commonMistakes?:string; equipment?:string; sets?:number; reps?:string; tracking?:'reps'|'timed'; durationSeconds?:number; muscleGroupIds?:string[] }
 export type MuscleGroup = { id:string; name:string; exerciseIds:string[] }
-export type PlanDay = { id:string; name:string; muscleGroupIds:string[]; isRestDay?:boolean }
+export type PlanDay = { id:string; name:string; exerciseIds:string[]; muscleGroupIds?:string[]; isRestDay?:boolean }
 export type DayEntry = { date:string; label:string; description?:string }
 export type WeightEntry = { id:string; date:string; weight:number }
 export type WeightTracking = { enabled:boolean; entries:WeightEntry[] }
 export type AppState = { exercises:Exercise[]; muscleGroups:MuscleGroup[]; days:PlanDay[]; history:DayEntry[]; weightTracking:WeightTracking }
+
+export const STANDARD_MUSCLE_GROUPS=[
+  {id:'group-chest',name:'Chest'},
+  {id:'group-back',name:'Back'},
+  {id:'group-shoulders',name:'Shoulders'},
+  {id:'group-biceps',name:'Biceps'},
+  {id:'group-triceps',name:'Triceps'},
+  {id:'group-forearms',name:'Forearms'},
+  {id:'group-core',name:'Abs'},
+  {id:'group-quads',name:'Quadriceps'},
+  {id:'group-hamstrings',name:'Hamstrings'},
+  {id:'group-glutes',name:'Glutes'},
+  {id:'group-calves',name:'Calves'},
+  {id:'group-lower-back',name:'Lower Back'},
+  {id:'group-traps',name:'Traps'},
+  {id:'group-full-body',name:'Full Body'},
+] as const
 
 const KEY = 'wdiit.state.v2'
 const LEGACY_KEY = 'wdiit.state.v1'
@@ -28,15 +45,21 @@ export const defaultState = ():AppState => ({
     {id:'group-quads',name:'Quadriceps',exerciseIds:['ex-squat']},
     {id:'group-hamstrings',name:'Hamstrings',exerciseIds:['ex-rdl']},
     {id:'group-glutes',name:'Glutes',exerciseIds:['ex-squat','ex-rdl']},
+    {id:'group-forearms',name:'Forearms',exerciseIds:[]},
+    {id:'group-core',name:'Abs',exerciseIds:[]},
+    {id:'group-calves',name:'Calves',exerciseIds:[]},
+    {id:'group-lower-back',name:'Lower Back',exerciseIds:[]},
+    {id:'group-traps',name:'Traps',exerciseIds:[]},
+    {id:'group-full-body',name:'Full Body',exerciseIds:[]},
   ],
     days: [
-      {id:'day-mon',name:'Push day',muscleGroupIds:['group-chest','group-shoulders','group-triceps']},
-      {id:'day-tue',name:'Pull day',muscleGroupIds:['group-back','group-biceps']},
-      {id:'day-wed',name:'Leg day',muscleGroupIds:['group-quads','group-hamstrings','group-glutes']},
-      {id:'day-thu',name:'Recovery',muscleGroupIds:[],isRestDay:true},
-      {id:'day-fri',name:'Push day',muscleGroupIds:['group-chest','group-shoulders','group-triceps']},
-      {id:'day-sat',name:'Pull day',muscleGroupIds:['group-back','group-biceps']},
-      {id:'day-sun',name:'Rest day',muscleGroupIds:[],isRestDay:true},
+      {id:'day-mon',name:'Push day',exerciseIds:['ex-bench','ex-ohp']},
+      {id:'day-tue',name:'Pull day',exerciseIds:['ex-row','ex-pulldown']},
+      {id:'day-wed',name:'Leg day',exerciseIds:['ex-squat','ex-rdl']},
+      {id:'day-thu',name:'Recovery',exerciseIds:[],isRestDay:true},
+      {id:'day-fri',name:'Push day',exerciseIds:['ex-bench','ex-ohp']},
+      {id:'day-sat',name:'Pull day',exerciseIds:['ex-row','ex-pulldown']},
+      {id:'day-sun',name:'Rest day',exerciseIds:[],isRestDay:true},
     ], history: [], weightTracking: { enabled: false, entries: [] }
 })
 
@@ -73,8 +96,9 @@ function migrate(raw:Record<string,unknown>):AppState{
     const lines=typeof x.description==='string'?x.description.split('\n').map(s=>s.trim()).filter(Boolean):[]
     const exerciseIds=lines.map((name,j)=>{const id=`migrated-ex-${i}-${j}`; exercises.push({id,name,sets:3,reps:'8–12'}); return id})
     const groupId=`migrated-group-${i}`
-    muscleGroups.push({id:groupId,name,exerciseIds}); days.push({id:`migrated-day-${i}`,name,muscleGroupIds:[groupId]})
+    muscleGroups.push({id:groupId,name,exerciseIds}); days.push({id:`migrated-day-${i}`,name,exerciseIds})
   })
+  STANDARD_MUSCLE_GROUPS.forEach(group=>{if(!muscleGroups.some(existing=>existing.name.toLowerCase()===group.name.toLowerCase()))muscleGroups.push({...group,exerciseIds:[]})})
   return {exercises,muscleGroups,days,history:historyOf(raw.history),weightTracking:weightTrackingOf(raw.weightTracking)}
 }
 
@@ -89,10 +113,11 @@ function normalize(value:unknown):AppState{
   })
   const exIds=new Set(exercises.map(x=>x.id))
   const muscleGroups=raw.muscleGroups.flatMap((v):MuscleGroup[]=>{if(!v||typeof v!=='object')return[];const x=v as Record<string,unknown>;if(typeof x.id!=='string'||typeof x.name!=='string'||!x.name.trim())return[];return[{id:x.id,name:x.name.trim(),exerciseIds:Array.isArray(x.exerciseIds)?x.exerciseIds.filter((id):id is string=>typeof id==='string'&&exIds.has(id)):[]}]})
+  STANDARD_MUSCLE_GROUPS.forEach(group=>{if(!muscleGroups.some(existing=>existing.id===group.id||existing.name.toLowerCase()===group.name.toLowerCase()))muscleGroups.push({...group,exerciseIds:[]})})
   const groupIds=new Set(muscleGroups.map(x=>x.id))
   exercises=exercises.map(ex=>({...ex,muscleGroupIds:[...new Set([...(ex.muscleGroupIds||[]).filter(id=>groupIds.has(id)),...muscleGroups.filter(group=>group.exerciseIds.includes(ex.id)).map(group=>group.id)])]}))
   muscleGroups.forEach(group=>group.exerciseIds=exercises.filter(ex=>ex.muscleGroupIds?.includes(group.id)).map(ex=>ex.id))
-  const days=raw.days.flatMap((v):PlanDay[]=>{if(!v||typeof v!=='object')return[];const x=v as Record<string,unknown>;if(typeof x.id!=='string'||typeof x.name!=='string'||!x.name.trim())return[];return[{id:x.id,name:x.name.trim(),muscleGroupIds:Array.isArray(x.muscleGroupIds)?x.muscleGroupIds.filter((id):id is string=>typeof id==='string'&&groupIds.has(id)):[],...(x.isRestDay===true?{isRestDay:true}:{})}]})
+  const days=raw.days.flatMap((v):PlanDay[]=>{if(!v||typeof v!=='object')return[];const x=v as Record<string,unknown>;if(typeof x.id!=='string'||typeof x.name!=='string'||!x.name.trim())return[];const legacyGroupIds=Array.isArray(x.muscleGroupIds)?x.muscleGroupIds.filter((id):id is string=>typeof id==='string'&&groupIds.has(id)):[];const directIds=Array.isArray(x.exerciseIds)?x.exerciseIds.filter((id):id is string=>typeof id==='string'&&exIds.has(id)):[];const exerciseIds=directIds.length||Array.isArray(x.exerciseIds)?directIds:[...new Set(legacyGroupIds.flatMap(id=>muscleGroups.find(group=>group.id===id)?.exerciseIds||[]))];return[{id:x.id,name:x.name.trim(),exerciseIds,...(legacyGroupIds.length?{muscleGroupIds:legacyGroupIds}:{}),...(x.isRestDay===true?{isRestDay:true}:{})}]})
   return {exercises,muscleGroups,days,history:historyOf(raw.history),weightTracking:weightTrackingOf(raw.weightTracking)}
 }
 

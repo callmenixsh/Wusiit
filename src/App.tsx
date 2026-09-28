@@ -90,7 +90,7 @@ export default function App(){
 
   function currentExerciseIds(source=state){
     const day=source.days[0]
-    return [...new Set(day?.muscleGroupIds.flatMap(groupId=>source.muscleGroups.find(g=>g.id===groupId)?.exerciseIds||[])||[])]
+    return [...new Set(day?.exerciseIds||[])]
   }
 
   function startExercise(id:string){
@@ -264,7 +264,7 @@ export default function App(){
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = 'wusiit-backup.json'
+    a.download = 'wuwiit-backup.json'
     a.click()
     URL.revokeObjectURL(url)
   }
@@ -339,8 +339,8 @@ export default function App(){
       <div className="w-full max-w-md mx-auto min-h-screen flex flex-col p-4">
         <header className="mb-4 flex items-center justify-between">
           <button className="text-left" onClick={()=>setView('home')} aria-label="Go to home">
-            <h1 className="text-xl font-medium text-black dark:text-white brand-logo">Wusiit</h1>
-            <div className="text-[10px] uppercase text-black/60 dark:text-white/60">What split is it today?</div>
+            <h1 className="text-xl font-medium text-black dark:text-white brand-logo">Wuwiit</h1>
+            <div className="text-[10px] uppercase text-black/60 dark:text-white/60">What workout is it today?</div>
           </button>
 
           <div className="flex items-center gap-1.5">

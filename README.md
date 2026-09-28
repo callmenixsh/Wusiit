@@ -1,12 +1,15 @@
-# Wusiit
+# Wuwiit
 
-A local-first workout planner built around three reusable layers:
+**What workout is it today?**
 
-1. **Exercises** — movement details, equipment, sets, reps, and form instructions.
-2. **Muscle groups** — reusable collections of exercises.
-3. **Training days** — an ordered plan composed of one or more muscle groups.
+A local-first workout planner built around two simple layers:
 
-The home screen expands the current training day into its complete workout. Starting a workout records a snapshot in history; when the configured timer ends, the plan advances to the next day.
+1. **Exercise library** — reusable movements with sets, reps, form guidance, and optional details.
+2. **Workout plan** — seven days that contain exercises directly, or can be marked for rest and recovery.
+
+Muscle groups are optional exercise tags; users do not need to manage them to build a workout.
+
+The home screen expands the current training day into its complete workout. It includes guided sets, rest timers, an elapsed workout stopwatch, history, and optional weight tracking.
 
 ## Development
 
