@@ -1,5 +1,7 @@
 import React from 'react'
 import { Monitor, Moon, Sun } from 'lucide-react'
+import { ReminderSettings } from '../lib/storage'
+import { NotificationStatus } from '../lib/notifications'
 
 type TemplateId = 'ppl' | '5day' | 'arnold' | 'home'
 
@@ -20,6 +22,13 @@ type SettingsProps = {
   onWeeklyWorkoutGoalChange: (goal:number) => void
   restSeconds: number
   onRestSecondsChange: (seconds:number) => void
+  reminders: ReminderSettings
+  onRemindersChange: (settings:ReminderSettings) => void
+  notificationPermission: NotificationStatus
+  onEnableNotifications: () => void | Promise<void>
+  isInstalled: boolean
+  canInstall: boolean
+  onInstall: () => void | Promise<void>
 }
 
 export default function Settings({
@@ -39,7 +48,16 @@ export default function Settings({
   onWeeklyWorkoutGoalChange,
   restSeconds,
   onRestSecondsChange,
+  reminders,
+  onRemindersChange,
+  notificationPermission,
+  onEnableNotifications,
+  isInstalled,
+  canInstall,
+  onInstall,
 }: SettingsProps) {
+  const days=['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
+  const update=(next:Partial<ReminderSettings>)=>onRemindersChange({...reminders,...next,enabled:true})
   return (
     <>
       <section className="bg-white dark:bg-black rounded-lg space-y-3">
@@ -60,6 +78,27 @@ export default function Settings({
               Theme: {themePref === 'system' ? 'System' : themePref === 'dark' ? 'Dark' : 'Light'}
             </span>
           </button>
+        </div>
+
+        <div className="rounded-xl border border-black/15 p-4 dark:border-white/25 bg-black/[0.015] dark:bg-white/[0.02]">
+          <div className="text-[11px] uppercase tracking-wider text-black/60 dark:text-white/60">App & offline</div>
+          <div className="mt-1 text-xs text-black/55 dark:text-white/55">Installed workouts and data remain available without a connection.</div>
+          {isInstalled?<div className="mt-3 rounded-lg border border-black/15 px-3 py-2.5 text-sm dark:border-white/20">Installed on this device</div>:canInstall?<button className="mt-3 w-full rounded-lg bg-black py-2.5 text-white dark:bg-white dark:text-black" onClick={onInstall}>Install Wuwiit</button>:<div className="mt-3 rounded-lg border border-black/15 px-3 py-2.5 text-xs dark:border-white/20">On iPhone or iPad, use Share → Add to Home Screen. In other browsers, use the install option in the address bar or menu.</div>}
+        </div>
+
+        <div className="rounded-xl border border-black/15 p-4 dark:border-white/25 bg-black/[0.015] dark:bg-white/[0.02]">
+          <div className="text-[11px] uppercase tracking-wider text-black/60 dark:text-white/60">Notifications</div>
+          {notificationPermission!=='granted'?<><div className="mt-1 text-xs text-black/55 dark:text-white/55">Allow notifications for timer completion and reminders while Wuwiit is in the background.</div><button disabled={notificationPermission==='denied'||notificationPermission==='unsupported'} className="mt-3 w-full rounded-lg bg-black py-2.5 text-white disabled:opacity-40 dark:bg-white dark:text-black" onClick={onEnableNotifications}>{notificationPermission==='denied'?'Blocked in browser settings':notificationPermission==='unsupported'?'Not supported on this device':'Enable notifications'}</button></>:<>
+            <label className="mt-3 flex items-center justify-between gap-3 rounded-lg border border-black/15 px-3 py-2.5 dark:border-white/20"><span className="text-sm font-medium">Rest timer complete</span><input type="checkbox" checked={reminders.restTimer} onChange={event=>update({restTimer:event.target.checked})}/></label>
+            <div className="mt-2 rounded-lg border border-black/15 p-3 dark:border-white/20">
+              <label className="flex items-center justify-between"><span className="text-sm font-medium">Workout reminders</span><input type="checkbox" checked={reminders.workout.enabled} onChange={event=>update({workout:{...reminders.workout,enabled:event.target.checked}})}/></label>
+              {reminders.workout.enabled&&<><div className="mt-3 flex flex-wrap gap-1">{days.map((day,index)=><button type="button" key={day} onClick={()=>update({workout:{...reminders.workout,weekdays:reminders.workout.weekdays.includes(index)?reminders.workout.weekdays.filter(value=>value!==index):[...reminders.workout.weekdays,index].sort()}})} className={`rounded-full border px-2.5 py-1 text-xs ${reminders.workout.weekdays.includes(index)?'bg-black text-white dark:bg-white dark:text-black':'border-black/20 dark:border-white/25'}`}>{day}</button>)}</div><input aria-label="Workout reminder time" type="time" value={reminders.workout.time} onChange={event=>update({workout:{...reminders.workout,time:event.target.value}})} className="mt-3 w-full rounded-lg border border-black/20 bg-white px-3 py-2 text-sm dark:border-white/30 dark:bg-black"/></>}
+            </div>
+            <div className="mt-2 rounded-lg border border-black/15 p-3 dark:border-white/20">
+              <label className="flex items-center justify-between"><span className="text-sm font-medium">Weekly weigh-in</span><input type="checkbox" checked={reminders.weighIn.enabled} onChange={event=>update({weighIn:{...reminders.weighIn,enabled:event.target.checked}})}/></label>
+              {reminders.weighIn.enabled&&<div className="mt-3 grid grid-cols-2 gap-2"><select aria-label="Weigh-in reminder day" value={reminders.weighIn.weekday} onChange={event=>update({weighIn:{...reminders.weighIn,weekday:Number(event.target.value)}})} className="rounded-lg border border-black/20 bg-white px-3 py-2 text-sm dark:border-white/30 dark:bg-black">{days.map((day,index)=><option key={day} value={index}>{day}</option>)}</select><input aria-label="Weigh-in reminder time" type="time" value={reminders.weighIn.time} onChange={event=>update({weighIn:{...reminders.weighIn,time:event.target.value}})} className="rounded-lg border border-black/20 bg-white px-3 py-2 text-sm dark:border-white/30 dark:bg-black"/></div>}
+            </div>
+          </>}
         </div>
 
         <div className="rounded-xl border border-black/15 dark:border-white/25 p-4 bg-black/[0.015] dark:bg-white/[0.02]">

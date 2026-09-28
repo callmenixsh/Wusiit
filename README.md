@@ -19,3 +19,18 @@ npm run dev
 ```
 
 Data is stored in browser local storage. The settings screen supports JSON backup and restore. Existing v1 split data is migrated automatically into the new relational model.
+
+The production build is an installable PWA and precaches the complete application shell for offline use. Active workout and rest-timer deadlines are persisted, so they recover accurately after the app is suspended or restarted.
+
+## Push reminders
+
+Scheduled workout and weigh-in reminders use Netlify Functions, Netlify Blobs, and Web Push. Generate VAPID keys with `npx web-push generate-vapid-keys`, then configure:
+
+```text
+VITE_VAPID_PUBLIC_KEY=<public key available at build time>
+VAPID_PUBLIC_KEY=<same public key>
+VAPID_PRIVATE_KEY=<private key>
+VAPID_SUBJECT=mailto:you@example.com
+```
+
+Without those variables, the app remains fully usable offline and foreground/rest recovery still works, but closed-app scheduled push delivery is disabled.

@@ -6,7 +6,13 @@ export type ExercisePerformance = { exerciseId:string; exerciseName:string; set:
 export type DayEntry = { id?:string; date:string; completedAt?:string; label:string; description?:string; durationSeconds?:number; rating?:WorkoutRating; performances?:ExercisePerformance[] }
 export type WeightEntry = { id:string; date:string; weight:number }
 export type WeightTracking = { enabled:boolean; entries:WeightEntry[] }
-export type AppState = { exercises:Exercise[]; muscleGroups:MuscleGroup[]; days:PlanDay[]; history:DayEntry[]; weightTracking:WeightTracking; weeklyWorkoutGoal:number; restSeconds:number; restTimerSound:boolean; restTimerVibration:boolean }
+export type ReminderSettings = {
+  enabled:boolean
+  restTimer:boolean
+  workout:{enabled:boolean;weekdays:number[];time:string}
+  weighIn:{enabled:boolean;weekday:number;time:string}
+}
+export type AppState = { exercises:Exercise[]; muscleGroups:MuscleGroup[]; days:PlanDay[]; history:DayEntry[]; weightTracking:WeightTracking; weeklyWorkoutGoal:number; restSeconds:number; restTimerSound:boolean; restTimerVibration:boolean; reminders:ReminderSettings }
 
 export const STANDARD_MUSCLE_GROUPS=[
   {id:'group-chest',name:'Chest'},
@@ -62,8 +68,18 @@ export const defaultState = ():AppState => ({
       {id:'day-fri',name:'Push day',exerciseIds:['ex-bench','ex-ohp']},
       {id:'day-sat',name:'Pull day',exerciseIds:['ex-row','ex-pulldown']},
       {id:'day-sun',name:'Rest day',exerciseIds:[],isRestDay:true},
-    ], history: [], weightTracking: { enabled: false, entries: [] }, weeklyWorkoutGoal: 3, restSeconds: 60, restTimerSound: true, restTimerVibration: true
+    ], history: [], weightTracking: { enabled: false, entries: [] }, weeklyWorkoutGoal: 3, restSeconds: 60, restTimerSound: true, restTimerVibration: true,
+    reminders:{enabled:false,restTimer:true,workout:{enabled:false,weekdays:[1,3,5],time:'18:00'},weighIn:{enabled:false,weekday:1,time:'08:00'}}
 })
+
+function timeOf(value:unknown,fallback:string){return typeof value==='string'&&/^([01]\d|2[0-3]):[0-5]\d$/.test(value)?value:fallback}
+function remindersOf(value:unknown):ReminderSettings{
+  const raw=value&&typeof value==='object'?value as Record<string,unknown>:{}
+  const workout=raw.workout&&typeof raw.workout==='object'?raw.workout as Record<string,unknown>:{}
+  const weighIn=raw.weighIn&&typeof raw.weighIn==='object'?raw.weighIn as Record<string,unknown>:{}
+  const weekdays=Array.isArray(workout.weekdays)?[...new Set(workout.weekdays.map(Number).filter(day=>Number.isInteger(day)&&day>=0&&day<=6))]:[1,3,5]
+  return {enabled:raw.enabled===true,restTimer:raw.restTimer!==false,workout:{enabled:workout.enabled===true,weekdays,time:timeOf(workout.time,'18:00')},weighIn:{enabled:weighIn.enabled===true,weekday:Math.min(6,Math.max(0,Math.round(Number(weighIn.weekday)||0))),time:timeOf(weighIn.time,'08:00')}}
+}
 
 function weightTrackingOf(value:unknown):WeightTracking{
   if(!value || typeof value !== 'object') return {enabled:false,entries:[]}
@@ -114,7 +130,7 @@ function migrate(raw:Record<string,unknown>):AppState{
     muscleGroups.push({id:groupId,name,exerciseIds}); days.push({id:`migrated-day-${i}`,name,exerciseIds})
   })
   STANDARD_MUSCLE_GROUPS.forEach(group=>{if(!muscleGroups.some(existing=>existing.name.toLowerCase()===group.name.toLowerCase()))muscleGroups.push({...group,exerciseIds:[]})})
-  return {exercises,muscleGroups,days,history:historyOf(raw.history),weightTracking:weightTrackingOf(raw.weightTracking),weeklyWorkoutGoal:weeklyWorkoutGoalOf(raw.weeklyWorkoutGoal),restSeconds:restSecondsOf(raw.restSeconds),restTimerSound:raw.restTimerSound!==false,restTimerVibration:raw.restTimerVibration!==false}
+  return {exercises,muscleGroups,days,history:historyOf(raw.history),weightTracking:weightTrackingOf(raw.weightTracking),weeklyWorkoutGoal:weeklyWorkoutGoalOf(raw.weeklyWorkoutGoal),restSeconds:restSecondsOf(raw.restSeconds),restTimerSound:raw.restTimerSound!==false,restTimerVibration:raw.restTimerVibration!==false,reminders:remindersOf(raw.reminders)}
 }
 
 function normalize(value:unknown):AppState{
@@ -133,7 +149,7 @@ function normalize(value:unknown):AppState{
   exercises=exercises.map(ex=>({...ex,muscleGroupIds:[...new Set([...(ex.muscleGroupIds||[]).filter(id=>groupIds.has(id)),...muscleGroups.filter(group=>group.exerciseIds.includes(ex.id)).map(group=>group.id)])]}))
   muscleGroups.forEach(group=>group.exerciseIds=exercises.filter(ex=>ex.muscleGroupIds?.includes(group.id)).map(ex=>ex.id))
   const days=raw.days.flatMap((v):PlanDay[]=>{if(!v||typeof v!=='object')return[];const x=v as Record<string,unknown>;if(typeof x.id!=='string'||typeof x.name!=='string'||!x.name.trim())return[];const legacyGroupIds=Array.isArray(x.muscleGroupIds)?x.muscleGroupIds.filter((id):id is string=>typeof id==='string'&&groupIds.has(id)):[];const directIds=Array.isArray(x.exerciseIds)?x.exerciseIds.filter((id):id is string=>typeof id==='string'&&exIds.has(id)):[];const exerciseIds=directIds.length||Array.isArray(x.exerciseIds)?directIds:[...new Set(legacyGroupIds.flatMap(id=>muscleGroups.find(group=>group.id===id)?.exerciseIds||[]))];return[{id:x.id,name:x.name.trim(),exerciseIds,...(legacyGroupIds.length?{muscleGroupIds:legacyGroupIds}:{}),...(x.isRestDay===true?{isRestDay:true}:{})}]})
-  return {exercises,muscleGroups,days,history:historyOf(raw.history),weightTracking:weightTrackingOf(raw.weightTracking),weeklyWorkoutGoal:weeklyWorkoutGoalOf(raw.weeklyWorkoutGoal),restSeconds:restSecondsOf(raw.restSeconds),restTimerSound:raw.restTimerSound!==false,restTimerVibration:raw.restTimerVibration!==false}
+  return {exercises,muscleGroups,days,history:historyOf(raw.history),weightTracking:weightTrackingOf(raw.weightTracking),weeklyWorkoutGoal:weeklyWorkoutGoalOf(raw.weeklyWorkoutGoal),restSeconds:restSecondsOf(raw.restSeconds),restTimerSound:raw.restTimerSound!==false,restTimerVibration:raw.restTimerVibration!==false,reminders:remindersOf(raw.reminders)}
 }
 
 export function loadState():AppState{try{const raw=localStorage.getItem(KEY)||localStorage.getItem(LEGACY_KEY);return raw?normalize(JSON.parse(raw)):defaultState()}catch(e){console.error(e);return defaultState()}}

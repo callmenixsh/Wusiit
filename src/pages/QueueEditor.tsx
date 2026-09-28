@@ -46,7 +46,7 @@ export default function QueueEditor({state,onSave,templateDraftItems,templateDra
   useEffect(()=>setDraft(asWeek(state)),[state])
   useEffect(()=>{
     if(!templateDraftItems?.length)return
-    const next:AppState={exercises:[],muscleGroups:STANDARD_MUSCLE_GROUPS.map(group=>({...group,exerciseIds:[]})),days:[],history:clone(state).history,weightTracking:clone(state).weightTracking,weeklyWorkoutGoal:state.weeklyWorkoutGoal,restSeconds:state.restSeconds,restTimerSound:state.restTimerSound,restTimerVibration:state.restTimerVibration}
+    const next:AppState={exercises:[],muscleGroups:STANDARD_MUSCLE_GROUPS.map(group=>({...group,exerciseIds:[]})),days:[],history:clone(state).history,weightTracking:clone(state).weightTracking,weeklyWorkoutGoal:state.weeklyWorkoutGoal,restSeconds:state.restSeconds,restTimerSound:state.restTimerSound,restTimerVibration:state.restTimerVibration,reminders:clone(state).reminders}
     const ensureGroup=(name:string)=>{let group=next.muscleGroups.find(g=>g.name===name);if(!group){group={id:makeId('group'),name,exerciseIds:[]};next.muscleGroups.push(group)}return group}
     templateDraftItems.forEach(item=>{
       if(item.description==='__REST__'){next.days.push({id:makeId('day'),name:item.name,exerciseIds:[],isRestDay:true});return}

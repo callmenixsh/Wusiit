@@ -19,5 +19,5 @@ html.dark body{
 @layer components {
 	.muted{ color: rgba(0,0,0,0.6) }
 	html.dark .muted{ color: rgba(255,255,255,0.6) }
-	.brand-logo{ font-family: 'Manufacturing Consent', cursive; font-weight: 400; }
+	.brand-logo{ font-family: Impact, Haettenschweiler, 'Arial Narrow Bold', sans-serif; font-weight: 400; letter-spacing: .02em; }
 }

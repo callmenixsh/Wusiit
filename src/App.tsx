@@ -7,45 +7,35 @@ import Settings from './pages/Settings'
 import { loadState, saveState, exportJSON, importJSON, AppState, WorkoutRating } from './lib/storage'
 import { addHistoryForCurrentDay, advanceToNextDay } from './lib/queue'
 import { localDateString } from './lib/dates'
+import { clearLegacyWorkoutSession, loadWorkoutSession, saveWorkoutSession, PendingRest, FeedbackCounts } from './lib/workoutSession'
+import { isStandalone, notificationStatus, requestNotifications, showSystemNotification, syncPushSubscription, syncRestNotification, NotificationStatus } from './lib/notifications'
 
 const THEME_KEY = 'wusiit.theme'
-const WORKOUT_TIMER_END_KEY = 'wusiit.workout.timerEnd'
-const WORKOUT_START_KEY = 'wusiit.workout.startedAt'
-const WORKOUT_PAUSED_AT_KEY = 'wusiit.workout.pausedAt'
-const WORKOUT_PAUSED_TOTAL_KEY = 'wusiit.workout.pausedTotal'
 const LAST_WORKOUT_DATE_KEY = 'wusiit.lastWorkoutDate'
-const COMPLETED_EXERCISES_KEY = 'wusiit.workout.completed'
-const ACTIVE_EXERCISE_KEY = 'wusiit.workout.activeExercise'
-const EXERCISE_TIMER_END_KEY = 'wusiit.workout.exerciseTimerEnd'
 const ADVANCED_HISTORY_ENTRY_KEY = 'wusiit.workout.advancedHistoryEntry'
-const WORKOUT_FEEDBACK_KEY = 'wusiit.workout.feedback'
-
-type PendingRest = { exerciseId:string; set:number; durationSeconds:number }
-type FeedbackCounts = { hard:number; right:number; easy:number }
 
 type ThemePref = 'system'|'light'|'dark'
 
 export default function App(){
+  const [restoredSession] = useState(()=>loadWorkoutSession())
   const [state, setState] = useState<AppState>(()=>loadState())
   const [view, setView] = useState<'home'|'edit'|'history'|'settings'>('home')
-  const [workoutStartedAt, setWorkoutStartedAt] = useState<number>(()=>Number(localStorage.getItem(WORKOUT_START_KEY))||0)
-  const [workoutPausedAt, setWorkoutPausedAt] = useState<number>(()=>Number(localStorage.getItem(WORKOUT_PAUSED_AT_KEY))||0)
-  const [workoutPausedTotal, setWorkoutPausedTotal] = useState<number>(()=>Number(localStorage.getItem(WORKOUT_PAUSED_TOTAL_KEY))||0)
+  const [workoutStartedAt, setWorkoutStartedAt] = useState<number>(()=>restoredSession?.startedAt||0)
+  const [workoutPausedAt, setWorkoutPausedAt] = useState<number>(()=>restoredSession?.pausedAt||0)
+  const [workoutPausedTotal, setWorkoutPausedTotal] = useState<number>(()=>restoredSession?.pausedTotal||0)
   const [lastWorkoutDate, setLastWorkoutDate] = useState<string>(()=>localStorage.getItem(LAST_WORKOUT_DATE_KEY) || '')
   const [nowTs, setNowTs] = useState<number>(()=>Date.now())
-  const [completedExerciseIds, setCompletedExerciseIds] = useState<string[]>(()=>{
-    try{return JSON.parse(localStorage.getItem(COMPLETED_EXERCISES_KEY)||'[]')}catch{return[]}
-  })
-  const [activeExerciseId, setActiveExerciseId] = useState(()=>localStorage.getItem(ACTIVE_EXERCISE_KEY)||'')
-  const [exerciseTimerEnd, setExerciseTimerEnd] = useState(()=>Number(localStorage.getItem(EXERCISE_TIMER_END_KEY))||0)
+  const [completedExerciseIds, setCompletedExerciseIds] = useState<string[]>(()=>restoredSession?.completedExerciseIds||[])
+  const [activeExerciseId, setActiveExerciseId] = useState(()=>restoredSession?.activeExerciseId||'')
+  const [exerciseTimerEnd, setExerciseTimerEnd] = useState(()=>restoredSession?.exerciseTimerEnd||0)
   const [ratingExerciseId, setRatingExerciseId] = useState<string|null>(null)
   const [showNextWorkoutToday, setShowNextWorkoutToday] = useState(false)
-  const [feedbackCounts,setFeedbackCounts]=useState<FeedbackCounts>(()=>{
-    try{const value=JSON.parse(localStorage.getItem(WORKOUT_FEEDBACK_KEY)||'{}');return {hard:Number(value.hard)||0,right:Number(value.right)||0,easy:Number(value.easy)||0}}catch{return {hard:0,right:0,easy:0}}
-  })
-  const [activeSet, setActiveSet] = useState(1)
-  const [restTimerEnd, setRestTimerEnd] = useState(0)
-  const [pendingRest, setPendingRest] = useState<PendingRest|null>(null)
+  const [feedbackCounts,setFeedbackCounts]=useState<FeedbackCounts>(()=>restoredSession?.feedbackCounts||{hard:0,right:0,easy:0})
+  const [activeSet, setActiveSet] = useState(()=>restoredSession?.activeSet||1)
+  const [restTimerEnd, setRestTimerEnd] = useState(()=>restoredSession?.restTimerEnd||0)
+  const [pendingRest, setPendingRest] = useState<PendingRest|null>(()=>restoredSession?.pendingRest||null)
+  const [notificationPermission,setNotificationPermission]=useState<NotificationStatus>(()=>notificationStatus())
+  const [installPrompt,setInstallPrompt]=useState<Event|null>(null)
   const [themePref, setThemePref] = useState<ThemePref>(()=>{
     const t = localStorage.getItem(THEME_KEY)
     return (t === 'light' || t === 'dark') ? t : 'system'
@@ -83,9 +73,7 @@ export default function App(){
     setState(prev=>{const next:AppState=JSON.parse(JSON.stringify(prev));advanceToNextDay(next);return next})
   },[state.history,nowTs])
 
-  useEffect(()=>{workoutStartedAt?localStorage.setItem(WORKOUT_START_KEY,String(workoutStartedAt)):localStorage.removeItem(WORKOUT_START_KEY)},[workoutStartedAt])
-  useEffect(()=>{workoutPausedAt?localStorage.setItem(WORKOUT_PAUSED_AT_KEY,String(workoutPausedAt)):localStorage.removeItem(WORKOUT_PAUSED_AT_KEY)},[workoutPausedAt])
-  useEffect(()=>localStorage.setItem(WORKOUT_PAUSED_TOTAL_KEY,String(workoutPausedTotal)),[workoutPausedTotal])
+  useEffect(()=>saveWorkoutSession(workoutStartedAt?{version:1,startedAt:workoutStartedAt,pausedAt:workoutPausedAt,pausedTotal:workoutPausedTotal,completedExerciseIds,activeExerciseId,activeSet,exerciseTimerEnd,restTimerEnd,pendingRest,feedbackCounts}:null),[workoutStartedAt,workoutPausedAt,workoutPausedTotal,completedExerciseIds,activeExerciseId,activeSet,exerciseTimerEnd,restTimerEnd,pendingRest,feedbackCounts])
 
 
   useEffect(()=>{
@@ -98,10 +86,18 @@ export default function App(){
     return ()=>window.clearInterval(id)
   },[])
 
-  useEffect(()=>localStorage.setItem(COMPLETED_EXERCISES_KEY,JSON.stringify(completedExerciseIds)),[completedExerciseIds])
-  useEffect(()=>{activeExerciseId?localStorage.setItem(ACTIVE_EXERCISE_KEY,activeExerciseId):localStorage.removeItem(ACTIVE_EXERCISE_KEY)},[activeExerciseId])
-  useEffect(()=>localStorage.setItem(EXERCISE_TIMER_END_KEY,String(exerciseTimerEnd)),[exerciseTimerEnd])
-  useEffect(()=>localStorage.setItem(WORKOUT_FEEDBACK_KEY,JSON.stringify(feedbackCounts)),[feedbackCounts])
+  useEffect(()=>{
+    const refresh=()=>setNowTs(Date.now())
+    document.addEventListener('visibilitychange',refresh);window.addEventListener('focus',refresh);window.addEventListener('pageshow',refresh)
+    return()=>{document.removeEventListener('visibilitychange',refresh);window.removeEventListener('focus',refresh);window.removeEventListener('pageshow',refresh)}
+  },[])
+  useEffect(()=>{
+    const capture=(event:Event)=>{event.preventDefault();setInstallPrompt(event)}
+    window.addEventListener('beforeinstallprompt',capture)
+    return()=>window.removeEventListener('beforeinstallprompt',capture)
+  },[])
+  useEffect(()=>{if(state.reminders.enabled)void syncPushSubscription(state.reminders).catch(()=>{})},[state.reminders])
+  useEffect(()=>{if(state.reminders.enabled&&state.reminders.restTimer)void syncRestNotification(state.reminders,workoutPausedAt?0:restTimerEnd).catch(()=>{})},[restTimerEnd,workoutPausedAt,state.reminders.enabled,state.reminders.restTimer])
 
   function currentExerciseIds(source=state){
     const day=source.days[0]
@@ -223,6 +219,7 @@ export default function App(){
   function notifyRestComplete(){
     if(state.restTimerVibration&&navigator.vibrate)navigator.vibrate([180,80,180])
     if(state.restTimerSound)try{const AudioContextClass=window.AudioContext||(window as typeof window&{webkitAudioContext?:typeof AudioContext}).webkitAudioContext;if(AudioContextClass){const context=new AudioContextClass(),oscillator=context.createOscillator(),gain=context.createGain();oscillator.connect(gain);gain.connect(context.destination);oscillator.frequency.value=880;gain.gain.value=.08;oscillator.start();oscillator.stop(context.currentTime+.18)}}catch{}
+    if(state.reminders.enabled&&state.reminders.restTimer)void showSystemNotification('Rest complete',{body:'Your next set is ready.',tag:'rest-timer',data:{url:'/?action=workout'}})
   }
 
   useEffect(()=>{
@@ -356,16 +353,9 @@ export default function App(){
     if(!confirm('Reset all data?')) return
     localStorage.removeItem('wdiit.state.v1')
     localStorage.removeItem('wdiit.state.v2')
-    localStorage.removeItem(WORKOUT_TIMER_END_KEY)
-    localStorage.removeItem(WORKOUT_START_KEY)
-    localStorage.removeItem(WORKOUT_PAUSED_AT_KEY)
-    localStorage.removeItem(WORKOUT_PAUSED_TOTAL_KEY)
     localStorage.removeItem(LAST_WORKOUT_DATE_KEY)
-    localStorage.removeItem(COMPLETED_EXERCISES_KEY)
-    localStorage.removeItem(ACTIVE_EXERCISE_KEY)
-    localStorage.removeItem(EXERCISE_TIMER_END_KEY)
     localStorage.removeItem(ADVANCED_HISTORY_ENTRY_KEY)
-    localStorage.removeItem(WORKOUT_FEEDBACK_KEY)
+    saveWorkoutSession(null);clearLegacyWorkoutSession()
     setState(loadState())
     setWorkoutStartedAt(0)
     setWorkoutPausedAt(0)
@@ -387,6 +377,14 @@ export default function App(){
       ...prev.weightTracking.entries.filter(entry=>entry.date!==date)
     ].sort((a,b)=>b.date.localeCompare(a.date))}}))
   }
+
+  useEffect(()=>{
+    const action=new URLSearchParams(location.search).get('action')
+    if(!action)return
+    history.replaceState(null,'',location.pathname)
+    setView('home')
+    if(action==='weigh-in')window.setTimeout(()=>{const raw=prompt('Enter your current weight (kg)');const value=Number(raw);if(raw&&Number.isFinite(value)&&value>0&&value<=1000)handleLogWeight(value)},100)
+  },[])
 
   function handleDeleteWeight(id:string){
     setState(prev=>({...prev,weightTracking:{...prev.weightTracking,entries:prev.weightTracking.entries.filter(entry=>entry.id!==id)}}))
@@ -500,6 +498,13 @@ export default function App(){
               onWeeklyWorkoutGoalChange={weeklyWorkoutGoal=>setState(prev=>({...prev,weeklyWorkoutGoal}))}
               restSeconds={state.restSeconds}
               onRestSecondsChange={restSeconds=>setState(prev=>({...prev,restSeconds}))}
+              reminders={state.reminders}
+              onRemindersChange={reminders=>setState(prev=>({...prev,reminders}))}
+              notificationPermission={notificationPermission}
+              onEnableNotifications={async()=>{const permission=await requestNotifications();setNotificationPermission(permission);if(permission==='granted'){const reminders={...state.reminders,enabled:true};setState(prev=>({...prev,reminders}));void syncPushSubscription(reminders).catch(()=>{})}}}
+              isInstalled={isStandalone()}
+              canInstall={Boolean(installPrompt)}
+              onInstall={async()=>{if(!installPrompt)return;await (installPrompt as Event&{prompt:()=>Promise<void>}).prompt();setInstallPrompt(null)}}
             />
           )}
         </main>
