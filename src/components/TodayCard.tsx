@@ -23,6 +23,7 @@ type SetRating = "hard" | "right" | "easy";
 type WarmupStage = "choice" | "areas" | "steps" | null;
 type Props = {
 	state: AppState;
+	dayIndex: number;
 	onMark: () => void;
 	onDoTomorrow: () => void;
 	onFinishWorkout: () => void;
@@ -76,9 +77,32 @@ const ratingLabel = (rating: WorkoutRating | undefined) =>
 				? "Well balanced"
 				: "Not rated";
 
+const instructionLines = (text: string) =>
+	text
+		.split(/\r?\n|(?<=[.!?])\s+/)
+		.map((line) => line.trim())
+		.filter(Boolean);
+
+function InstructionLines({ text, className = "", ordered = false }: {
+	text: string;
+	className?: string;
+	ordered?: boolean;
+}) {
+	const lines = instructionLines(text);
+	const List = ordered ? "ol" : "ul";
+	return (
+		<List className={`${ordered ? "list-decimal" : "list-disc"} space-y-1.5 pl-5 ${className}`}>
+			{lines.map((line, index) => (
+				<li key={`${index}-${line}`} className="pl-0.5">{line}</li>
+			))}
+		</List>
+	);
+}
+
 export default function TodayCard(p: Props) {
 	const {
 		state,
+		dayIndex,
 		onMark,
 		onDoTomorrow,
 		onFinishWorkout,
@@ -114,7 +138,7 @@ export default function TodayCard(p: Props) {
 		onShowWarmupSteps,
 		onBeginExercises,
 	} = p;
-	const day = state.days[0];
+	const day = state.days[dayIndex];
 	if (!day)
 		return <div className="rounded-xl border p-5">No plan configured.</div>;
 	const ids = [...new Set(day.exerciseIds)];
@@ -142,7 +166,7 @@ export default function TodayCard(p: Props) {
 
 	if (completedToday && !isWorkoutActive) {
 		const streak = getWeeklyStats(state.history, state.weeklyWorkoutGoal);
-		const nextDay = state.days[1];
+		const nextDay = state.days[(dayIndex + 1) % state.days.length];
 		return (
 			<section className="overflow-hidden rounded-2xl bg-black text-white dark:bg-white dark:text-black">
 				<div className="p-6">
@@ -395,9 +419,7 @@ export default function TodayCard(p: Props) {
 												</div>
 											)}
 											{active.instructions && (
-												<p className="mt-4 text-sm leading-relaxed text-white/45">
-													{active.instructions}
-												</p>
+												<InstructionLines text={active.instructions} ordered className="mt-4 text-left text-sm leading-relaxed text-white/55" />
 											)}
 										</section>
 										{active.commonMistakes && (
@@ -405,9 +427,7 @@ export default function TodayCard(p: Props) {
 												<div className="text-[9px] font-bold uppercase tracking-widest text-white/35">
 													Avoid
 												</div>
-												<p className="mt-1 text-xs leading-relaxed text-white/55">
-													{active.commonMistakes}
-												</p>
+												<InstructionLines text={active.commonMistakes} className="mt-1 text-xs leading-relaxed text-white/55" />
 											</div>
 										)}
 									</div>
@@ -597,9 +617,9 @@ export default function TodayCard(p: Props) {
 									)}
 								</summary>
 								{ex.instructions && (
-									<p className="border-t border-current/10 p-3 text-sm opacity-55">
-										{ex.instructions}
-									</p>
+									<div className="border-t border-current/10 p-3">
+										<InstructionLines text={ex.instructions} ordered className="text-sm leading-relaxed opacity-60" />
+									</div>
 								)}
 							</details>
 						);
@@ -684,8 +704,7 @@ function WarmupFlow({
 				</div>
 				<h2 className="mt-2 text-4xl font-black">Build your warm-up</h2>
 				<p className="mt-2 text-sm text-white/45">
-					We selected areas from today’s exercises. Adjust them if you need to,
-					then follow the short routine.
+					Areas from today's exercises is selected, adjust if needed.
 				</p>
 				<div className="mt-6 grid grid-cols-2 gap-2">
 					{WARMUP_AREAS.map((area) => {
@@ -733,10 +752,6 @@ function WarmupFlow({
 				Before you lift
 			</div>
 			<h2 className="mt-2 text-4xl font-black">Warm up first</h2>
-			<p className="mt-2 text-sm text-white/45">
-				A couple of minutes now makes your first set feel a lot better. The
-				warm-up is not counted as part of your workout.
-			</p>
 			<button
 				disabled={paused}
 				onClick={onChooseWarmup}
@@ -774,10 +789,6 @@ function WarmupPhase({
 				Prepare to train
 			</div>
 			<h2 className="mt-2 text-4xl font-black">Warm-up</h2>
-			<p className="mt-2 text-sm text-white/45">
-				Go at your own pace and tick off each move. The warm-up does not count
-				towards your workout.
-			</p>
 			<div className="mt-6 space-y-2">
 				{steps.map((step, index) => {
 					const done = completed.includes(index);

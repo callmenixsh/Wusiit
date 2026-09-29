@@ -17,10 +17,11 @@ import {
 	exportPlanJSON,
 	importPlanJSON,
 	AppState,
+	WorkoutPlan,
 	WorkoutRating,
 } from "./lib/storage";
-import { addHistoryForCurrentDay, advanceToNextDay } from "./lib/queue";
-import { localDateString } from "./lib/dates";
+import { addHistoryForCurrentDay } from "./lib/queue";
+import { localDateString, weekdayIndex } from "./lib/dates";
 import {
 	recommendedWarmupAreas,
 	WarmupStep,
@@ -51,6 +52,34 @@ import Toast from "./components/Toast";
 const THEME_KEY = "wusiit.theme";
 const LAST_WORKOUT_DATE_KEY = "wusiit.lastWorkoutDate";
 const ADVANCED_HISTORY_ENTRY_KEY = "wusiit.workout.advancedHistoryEntry";
+const SAVED_PLANS_KEY = "wusiit.savedPlans.v1";
+
+export type SavedPlan = {
+	name: string;
+	updatedAt: string;
+	plan: WorkoutPlan;
+};
+
+function loadSavedPlans(): (SavedPlan | null)[] {
+	try {
+		const raw: unknown = JSON.parse(localStorage.getItem(SAVED_PLANS_KEY) || "[]");
+		if (!Array.isArray(raw)) return Array(5).fill(null);
+		return Array.from({ length: 5 }, (_, index) => {
+			const slot = raw[index];
+			if (!slot || typeof slot !== "object") return null;
+			const value = slot as Record<string, unknown>;
+			const plan = value.plan as WorkoutPlan | undefined;
+			if (!plan || !Array.isArray(plan.days) || !Array.isArray(plan.exercises) || !Array.isArray(plan.muscleGroups)) return null;
+			return {
+				name: typeof value.name === "string" && value.name.trim() ? value.name.trim().slice(0, 40) : `Plan ${index + 1}`,
+				updatedAt: typeof value.updatedAt === "string" ? value.updatedAt : new Date().toISOString(),
+				plan,
+			};
+		});
+	} catch {
+		return Array(5).fill(null);
+	}
+}
 
 type ThemePref = "system" | "light" | "dark";
 type Confirmation = {
@@ -91,6 +120,10 @@ export default function App() {
 	);
 	const [ratingExerciseId, setRatingExerciseId] = useState<string | null>(null);
 	const [showNextWorkoutToday, setShowNextWorkoutToday] = useState(false);
+	const todayDayIndex = weekdayIndex();
+	const activeDayIndex = showNextWorkoutToday
+		? (todayDayIndex + 1) % Math.max(1, state.days.length)
+		: todayDayIndex;
 	const [feedbackCounts, setFeedbackCounts] = useState<FeedbackCounts>(
 		() => restoredSession?.feedbackCounts || { hard: 0, right: 0, easy: 0 },
 	);
@@ -111,6 +144,8 @@ export default function App() {
 		return t === "light" || t === "dark" ? t : "system";
 	});
 	const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
+	const [isSavedPlansModalOpen, setIsSavedPlansModalOpen] = useState(false);
+	const [savedPlans, setSavedPlans] = useState<(SavedPlan | null)[]>(loadSavedPlans);
 	const [templateDraftItems, setTemplateDraftItems] = useState<
 		{ name: string; description?: string; warmup?: WarmupStep[] }[] | null
 	>(null);
@@ -250,7 +285,7 @@ export default function App() {
 	}, [state.reminders]);
 
 	function currentExerciseIds(source = state) {
-		const day = source.days[0];
+		const day = source.days[activeDayIndex];
 		return [...new Set(day?.exerciseIds || [])];
 	}
 
@@ -291,7 +326,7 @@ export default function App() {
 		setWorkoutPausedTotal(0);
 		setFeedbackCounts({ hard: 0, right: 0, easy: 0 });
 		setWarmupStage("choice");
-		setWarmupAreas(suggestedWarmupAreas(state.days[0]));
+		setWarmupAreas(suggestedWarmupAreas(state.days[activeDayIndex]));
 		setCompletedWarmupSteps([]);
 		setActiveExerciseId("");
 		setActiveSet(1);
@@ -318,11 +353,10 @@ export default function App() {
 					: "balanced";
 		setState((prev) => {
 			const next: AppState = JSON.parse(JSON.stringify(prev));
-			addHistoryForCurrentDay(next, { durationSeconds, rating });
+			addHistoryForCurrentDay(next, { durationSeconds, rating }, activeDayIndex);
 			return next;
 		});
 		setLastWorkoutDate(localDateString());
-		setShowNextWorkoutToday(false);
 		setFeedbackCounts({ hard: 0, right: 0, easy: 0 });
 		setWorkoutStartedAt(0);
 		setWorkoutPausedAt(0);
@@ -340,25 +374,24 @@ export default function App() {
 
 	function handleDoTomorrow() {
 		if (state.days.length < 2) return;
+		const tomorrowDayIndex = (todayDayIndex + 1) % state.days.length;
 		setState((prev) => {
 			const days = [...prev.days];
-			const first = days.shift();
-			if (first) days.push(first);
+			[days[todayDayIndex], days[tomorrowDayIndex]] = [
+				days[tomorrowDayIndex],
+				days[todayDayIndex],
+			];
 			return { ...prev, days };
 		});
+		setShowNextWorkoutToday(false);
 	}
 
 	function handleStartNextWorkoutToday() {
-		const nextDay = state.days[1];
+		const nextDay = state.days[(todayDayIndex + 1) % state.days.length];
 		if (!nextDay) return;
 		if (state.history[0]?.id)
 			localStorage.setItem(ADVANCED_HISTORY_ENTRY_KEY, state.history[0].id);
 		setShowNextWorkoutToday(true);
-		setState((prev) => {
-			const next: AppState = JSON.parse(JSON.stringify(prev));
-			advanceToNextDay(next);
-			return next;
-		});
 		if (nextDay.isRestDay) return;
 		setCompletedExerciseIds([]);
 		setWorkoutStartedAt(Date.now());
@@ -584,12 +617,62 @@ export default function App() {
 		setState(next);
 	}
 
-	function handleUseTemplate(templateId: "home") {
+	function persistSavedPlans(next: (SavedPlan | null)[]) {
+		setSavedPlans(next);
+		localStorage.setItem(SAVED_PLANS_KEY, JSON.stringify(next));
+	}
+
+	function handleSavePlanSlot(index: number, name: string) {
+		const next = [...savedPlans];
+		next[index] = {
+			name: name.trim().slice(0, 40) || `Plan ${index + 1}`,
+			updatedAt: new Date().toISOString(),
+			plan: JSON.parse(JSON.stringify({
+				exercises: state.exercises,
+				muscleGroups: state.muscleGroups,
+				days: state.days,
+			})),
+		};
+		persistSavedPlans(next);
+		setToast(savedPlans[index] ? "Saved plan updated" : "Plan saved");
+	}
+
+	function handleUseSavedPlan(index: number) {
+		const saved = savedPlans[index];
+		if (!saved) return;
+		const plan: WorkoutPlan = JSON.parse(JSON.stringify(saved.plan));
+		setState((current) => ({ ...current, ...plan }));
+		setIsSavedPlansModalOpen(false);
+		setView("edit");
+		setToast(`Loaded ${saved.name}`);
+	}
+
+	function handleDeleteSavedPlan(index: number) {
+		const next = [...savedPlans];
+		next[index] = null;
+		persistSavedPlans(next);
+		setToast("Saved plan deleted");
+	}
+
+	function handleUseTemplate(templateId: "ppl" | "home" | "beginner") {
 		let preset: {
 			name: string;
 			description?: string;
 			warmup?: WarmupStep[];
 		}[] = [];
+		if (templateId === "ppl") {
+			const upper = () => warmupStepsFor(["Upper body"]);
+			const lower = () => warmupStepsFor(["Lower body"]);
+			preset = [
+				{ name: "Push day", description: "Bench press\nOverhead press", warmup: upper() },
+				{ name: "Pull day", description: "Barbell row\nLat pulldown", warmup: upper() },
+				{ name: "Leg day", description: "Squat\nRomanian deadlift", warmup: lower() },
+				{ name: "Recovery", description: "__REST__" },
+				{ name: "Push day", description: "Bench press\nOverhead press", warmup: upper() },
+				{ name: "Pull day", description: "Barbell row\nLat pulldown", warmup: upper() },
+				{ name: "Rest day", description: "__REST__" },
+			];
+		}
 		if (templateId === "home") {
 			const upper = () => warmupStepsFor(["Upper body"]);
 			const lower = () => warmupStepsFor(["Lower body", "Core"]);
@@ -626,6 +709,25 @@ export default function App() {
 					warmup: lower(),
 				},
 				{ name: "Full Rest", description: "__REST__" },
+			];
+		}
+		if (templateId === "beginner") {
+			const gentleWarmup = (): WarmupStep[] => [
+				{name: "March in place", amount: "1 min", detail: "March at an easy pace and breathe normally."},
+				{name: "Shoulder rolls", amount: "30 sec", detail: "Roll the shoulders slowly through a comfortable range."},
+				{name: "Arm circles", amount: "30 sec", detail: "Make small, controlled circles without shrugging."},
+				{name: "Hip circles", amount: "30 sec", detail: "Move gently and keep the circles comfortable."},
+				{name: "Gentle bodyweight squats", amount: "1 min", detail: "Use a shallow, comfortable range and move slowly."},
+				{name: "Slow marching", amount: "1 min", detail: "Finish at an easy pace before starting the workout."},
+			];
+			preset = [
+				{name: "Full Body A", description: "Chair-assisted squat\nWall push-up\nBeginner glute bridge\nStanding alternating knee raise\nBeginner calf raise\nBird dog", warmup: gentleWarmup()},
+				{name: "Walking / Low-Impact Cardio", description: "Easy walk or indoor march"},
+				{name: "Full Body B", description: "Sit-to-stand\nWall push-up\nBeginner glute bridge\nSupported reverse leg raise\nBeginner wall sit\nBeginner dead bug", warmup: gentleWarmup()},
+				{name: "Recovery + Mobility", description: "Leisurely walk\nGentle mobility flow"},
+				{name: "Full Body A", description: "Chair-assisted squat\nWall push-up\nBeginner glute bridge\nStanding alternating knee raise\nBeginner calf raise\nBird dog", warmup: gentleWarmup()},
+				{name: "Walking / Low-Impact Cardio", description: "Easy walk or indoor march"},
+				{name: "Rest", description: "__REST__"},
 			];
 		}
 		setTemplateDraftItems(preset);
@@ -904,6 +1006,7 @@ export default function App() {
 					{view === "home" && (
 						<Home
 							state={state}
+							dayIndex={activeDayIndex}
 							onStartWorkout={handleStartWorkout}
 							onDoTomorrow={handleDoTomorrow}
 							onFinishWorkout={handleFinishWorkout}
@@ -939,7 +1042,6 @@ export default function App() {
 							onRateExercise={handleExerciseRating}
 							lastWorkoutDate={lastWorkoutDate}
 							completedToday={
-								!showNextWorkoutToday &&
 								state.history[0]?.date === localDateString()
 									? state.history[0]
 									: undefined
@@ -971,6 +1073,7 @@ export default function App() {
 					{view === "edit" && (
 						<QueueEditor
 							state={state}
+							todayDayIndex={todayDayIndex}
 							onSave={handleSaveProgram}
 							templateDraftItems={templateDraftItems}
 							templateDraftToken={templateDraftToken}
@@ -991,6 +1094,7 @@ export default function App() {
 					{view === "settings" && (
 						<Settings
 							onOpenTemplates={() => setIsTemplateModalOpen(true)}
+							onOpenSavedPlans={() => setIsSavedPlansModalOpen(true)}
 							onExportPlan={handleExportPlan}
 							onImportPlan={handleImportPlan}
 							onExportBackup={handleExportBackup}
@@ -1000,6 +1104,12 @@ export default function App() {
 							isTemplateModalOpen={isTemplateModalOpen}
 							onCloseTemplateModal={() => setIsTemplateModalOpen(false)}
 							onUseTemplate={handleUseTemplate}
+							isSavedPlansModalOpen={isSavedPlansModalOpen}
+							onCloseSavedPlansModal={() => setIsSavedPlansModalOpen(false)}
+							savedPlans={savedPlans}
+							onSavePlanSlot={handleSavePlanSlot}
+							onUseSavedPlan={handleUseSavedPlan}
+							onDeleteSavedPlan={handleDeleteSavedPlan}
 							themePref={themePref}
 							onCycleTheme={() => {
 								const next =

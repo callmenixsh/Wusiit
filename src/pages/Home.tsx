@@ -5,6 +5,7 @@ import { localDateString } from "../lib/dates";
 
 type HomeProps = {
 	state: AppState;
+	dayIndex: number;
 	onStartWorkout: () => void;
 	onDoTomorrow: () => void;
 	onFinishWorkout: () => void;
@@ -44,6 +45,7 @@ type HomeProps = {
 
 export default function Home({
 	state,
+	dayIndex,
 	onStartWorkout,
 	onDoTomorrow,
 	onFinishWorkout,
@@ -113,6 +115,7 @@ export default function Home({
 			)}
 			<TodayCard
 				state={state}
+				dayIndex={dayIndex}
 				onMark={onStartWorkout}
 				onDoTomorrow={onDoTomorrow}
 				onFinishWorkout={onFinishWorkout}

@@ -1,10 +1,28 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
+	closestCenter,
+	DndContext,
+	DragEndEvent,
+	KeyboardSensor,
+	PointerSensor,
+	useSensor,
+	useSensors,
+} from "@dnd-kit/core";
+import {
+	arrayMove,
+	SortableContext,
+	sortableKeyboardCoordinates,
+	useSortable,
+	verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import {
 	ArrowLeft,
 	BookOpen,
 	CalendarDays,
 	Check,
 	ChevronDown,
+	GripVertical,
 	Plus,
 	Trash2,
 } from "lucide-react";
@@ -19,6 +37,7 @@ import Modal, { DialogActions, primaryButton } from "../components/Modal";
 
 type Props = {
 	state: AppState;
+	todayDayIndex: number;
 	onSave: (state: AppState) => void;
 	templateDraftItems?:
 		| { name: string; description?: string; warmup?: WarmupStep[] }[]
@@ -55,6 +74,25 @@ const asWeek = (source: AppState) => {
 const field =
 	"w-full rounded-xl border border-black/15 bg-white px-3 py-2.5 text-sm text-black outline-none transition focus:border-black focus:ring-2 focus:ring-black/5 dark:border-white/20 dark:bg-black dark:text-white dark:focus:border-white dark:focus:ring-white/10";
 const homeExercise: Record<string, Partial<AppState["exercises"][number]>> = {
+	"Bench press": { equipment: "Barbell", sets: 3, reps: "8–12", instructions: "Retract your shoulder blades, keep your feet planted, and lower the bar with control." },
+	"Overhead press": { equipment: "Barbell", sets: 3, reps: "8–12", instructions: "Brace your core and press overhead without leaning back." },
+	"Barbell row": { equipment: "Barbell", sets: 3, reps: "8–12", instructions: "Hinge at the hips and pull the bar toward your lower ribs." },
+	"Lat pulldown": { equipment: "Cable", sets: 3, reps: "10–12", instructions: "Drive your elbows down without swinging your torso." },
+	Squat: { equipment: "Barbell", sets: 3, reps: "6–10", instructions: "Brace, sit between your hips, and track knees over toes." },
+	"Romanian deadlift": { equipment: "Barbell", sets: 3, reps: "8–12", instructions: "Push hips back with a neutral spine and keep the bar close." },
+	"Chair-assisted squat": {sets: 2, reps: "8", instructions: "Stand in front of a stable chair. Sit back under control, lightly touch the seat, then stand using the chair for support if needed.", commonMistakes: "Avoid dropping onto the chair, letting the knees cave inward, or holding your breath."},
+	"Wall push-up": {sets: 2, reps: "8", instructions: "Place your hands on a wall around chest height, keep your body straight, lower your chest toward the wall, then press away.", commonMistakes: "Avoid sagging at the hips, flaring the elbows straight out, or rushing the movement."},
+	"Beginner glute bridge": {sets: 2, reps: "10", instructions: "Lie on your back with knees bent. Press through your feet, squeeze your glutes to lift your hips, then lower slowly.", commonMistakes: "Avoid pushing through the toes or arching the lower back."},
+	"Standing alternating knee raise": {sets: 2, reps: "10 / side", instructions: "Stand tall near a wall for balance and slowly lift one knee, lower it, then alternate sides.", commonMistakes: "Avoid leaning backward, rushing, or pulling the knee beyond a comfortable height."},
+	"Beginner calf raise": {sets: 2, reps: "12", instructions: "Hold a wall lightly, rise onto the balls of both feet, pause, and lower with control.", commonMistakes: "Avoid bouncing or rolling the ankles outward."},
+	"Bird dog": {sets: 2, reps: "5 / side", instructions: "From hands and knees, extend the opposite arm and leg, pause while keeping the trunk steady, then switch sides.", commonMistakes: "Avoid rotating the hips, arching the lower back, or reaching higher than you can control."},
+	"Sit-to-stand": {sets: 2, reps: "8", instructions: "Sit near the front of a stable chair, lean slightly forward, stand through both feet, then sit down slowly.", commonMistakes: "Avoid dropping into the chair, letting the knees cave inward, or using momentum."},
+	"Supported reverse leg raise": {sets: 2, reps: "10 / side", instructions: "Hold a wall or chair, stand tall, and extend one straight leg slightly behind you by squeezing the glute. Alternate sides.", commonMistakes: "Avoid leaning forward, arching the lower back, or swinging the leg."},
+	"Beginner wall sit": {tracking: "timed", sets: 2, durationSeconds: 15, instructions: "Lean against a wall and slide down only as far as feels comfortable. Hold while breathing steadily.", commonMistakes: "Avoid forcing a deep position, letting the knees cave inward, or holding your breath."},
+	"Beginner dead bug": {sets: 2, reps: "5 / side", instructions: "Lie on your back with knees bent and arms raised. Slowly extend the opposite arm and leg while keeping your lower back comfortable, then switch.", commonMistakes: "Use a smaller range if your back arches, and avoid moving quickly."},
+	"Easy walk or indoor march": {tracking: "timed", sets: 1, durationSeconds: 1200, instructions: "Walk outside, use a treadmill, or march around the room at an easy pace. Breathe harder but stay able to speak in short sentences.", commonMistakes: "Do not turn this into a speed test. Slow down or stop if breathing feels disproportionate, you wheeze, feel dizzy, or have chest tightness or pain."},
+	"Leisurely walk": {tracking: "timed", sets: 1, durationSeconds: 600, instructions: "Walk at a deliberately easy recovery pace for 10 to 15 minutes.", commonMistakes: "Keep this easy; it is recovery, not a conditioning test."},
+	"Gentle mobility flow": {sets: 1, reps: "1 gentle round", instructions: "Move through hip circles, shoulder circles, a gentle chest stretch, hip-flexor stretch, calf stretch, and hamstring stretch. Stop after one relaxed round.", commonMistakes: "Do not bounce or force a stretch into pain."},
 	"Bodyweight squat": {
 		sets: 3,
 		reps: "12–15",
@@ -418,6 +456,19 @@ const homeExercise: Record<string, Partial<AppState["exercises"][number]>> = {
 	},
 };
 const musclesByExercise: Record<string, string[]> = {
+	"Chair-assisted squat": ["Quadriceps", "Glutes"],
+	"Wall push-up": ["Chest", "Shoulders", "Triceps"],
+	"Beginner glute bridge": ["Glutes", "Hamstrings"],
+	"Standing alternating knee raise": ["Abs", "Quadriceps"],
+	"Beginner calf raise": ["Calves"],
+	"Bird dog": ["Abs", "Lower Back", "Glutes"],
+	"Sit-to-stand": ["Quadriceps", "Glutes"],
+	"Supported reverse leg raise": ["Glutes", "Hamstrings"],
+	"Beginner wall sit": ["Quadriceps", "Glutes"],
+	"Beginner dead bug": ["Abs"],
+	"Easy walk or indoor march": ["Full Body"],
+	"Leisurely walk": ["Full Body"],
+	"Gentle mobility flow": ["Full Body"],
 	"Bench press": ["Chest", "Triceps", "Shoulders"],
 	"Incline dumbbell press": ["Chest", "Triceps", "Shoulders"],
 	"Shoulder press": ["Shoulders", "Triceps"],
@@ -527,7 +578,9 @@ function MultiSelect({
 		document.addEventListener("mousedown", close);
 		return () => document.removeEventListener("mousedown", close);
 	}, []);
-	const selected = options.filter((o) => value.includes(o.id));
+	const selected = value
+		.map((id) => options.find((option) => option.id === id))
+		.filter((option): option is Option => Boolean(option));
 	return (
 		<div ref={root} className="relative">
 			<button
@@ -600,6 +653,107 @@ function MultiSelect({
 	);
 }
 
+function SortableExercise({ option }: { option: Option }) {
+	const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+		useSortable({ id: option.id });
+	return (
+		<div
+			ref={setNodeRef}
+			style={{ transform: CSS.Transform.toString(transform), transition }}
+			className={`flex items-center gap-3 rounded-xl border border-black/10 bg-white px-3 py-2.5 dark:border-white/15 dark:bg-black ${isDragging ? "z-10 opacity-70 shadow-lg" : ""}`}
+		>
+			<button
+				type="button"
+				aria-label={`Reorder ${option.label}`}
+				className="cursor-grab touch-none text-black/35 active:cursor-grabbing dark:text-white/35"
+				{...attributes}
+				{...listeners}
+			>
+				<GripVertical size={18} />
+			</button>
+			<span className="min-w-0 flex-1 truncate text-sm font-medium">{option.label}</span>
+			{option.meta && <span className="text-[10px] opacity-40">{option.meta}</span>}
+		</div>
+	);
+}
+
+function ExerciseOrder({ options, value, onChange }: {
+	options: Option[];
+	value: string[];
+	onChange: (ids: string[]) => void;
+}) {
+	const sensors = useSensors(
+		useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+		useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+	);
+	const selected = value
+		.map((id) => options.find((option) => option.id === id))
+		.filter((option): option is Option => Boolean(option));
+	const handleDragEnd = ({ active, over }: DragEndEvent) => {
+		if (!over || active.id === over.id) return;
+		const from = value.indexOf(String(active.id));
+		const to = value.indexOf(String(over.id));
+		if (from >= 0 && to >= 0) onChange(arrayMove(value, from, to));
+	};
+	if (selected.length < 2) return null;
+	return (
+		<div className="mt-3">
+			<div className="mb-2 text-[10px] font-semibold uppercase tracking-widest opacity-40">Exercise order</div>
+			<DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+				<SortableContext items={value} strategy={verticalListSortingStrategy}>
+					<div className="space-y-2">{selected.map((option) => <SortableExercise key={option.id} option={option} />)}</div>
+				</SortableContext>
+			</DndContext>
+		</div>
+	);
+}
+
+function SortableDayCard({
+	day,
+	weekday,
+	isToday,
+	onOpen,
+}: {
+	day: AppState["days"][number];
+	weekday: string;
+	isToday: boolean;
+	onOpen: () => void;
+}) {
+	const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+		useSortable({ id: day.id });
+	return (
+		<div
+			ref={setNodeRef}
+			style={{ transform: CSS.Transform.toString(transform), transition }}
+			className={`flex items-center rounded-2xl border bg-white transition dark:bg-black ${isToday ? "border-black/60 dark:border-white/70" : "border-black/10 hover:border-black/25 dark:border-white/15 dark:hover:border-white/30"} ${isDragging ? "z-20 opacity-70 shadow-xl" : ""}`}
+		>
+			<button
+				type="button"
+				aria-label={`Move ${day.name || "untitled workout"} from ${weekday}`}
+				className="ml-2 flex min-h-12 w-9 shrink-0 touch-none cursor-grab items-center justify-center text-black/35 active:cursor-grabbing dark:text-white/35"
+				{...attributes}
+				{...listeners}
+			>
+				<GripVertical size={18} />
+			</button>
+			<button type="button" onClick={onOpen} className="flex min-w-0 flex-1 items-center gap-3 p-4 pl-1 text-left">
+				<span className="flex h-10 w-10 shrink-0 flex-col items-center justify-center rounded-xl bg-black/[.05] text-[9px] font-bold uppercase text-black/45 dark:bg-white/[.08] dark:text-white/45">
+					{weekday.slice(0, 3)}
+				</span>
+				<span className="min-w-0 flex-1">
+					<span className="block truncate font-semibold">{day.name || "Untitled day"}</span>
+					<span className="mt-1 block truncate text-xs text-black/45 dark:text-white/45">
+						{day.isRestDay
+							? "Rest / recovery"
+							: `${day.exerciseIds.length} exercises · ${day.warmup?.length ? `${day.warmup.length} warm-up steps` : "automatic warm-up"}`}
+					</span>
+				</span>
+				<ChevronDown size={17} className="-rotate-90 text-black/35 dark:text-white/35" />
+			</button>
+		</div>
+	);
+}
+
 function NativeSelect({
 	value,
 	onChange,
@@ -628,6 +782,7 @@ function NativeSelect({
 
 export default function QueueEditor({
 	state,
+	todayDayIndex,
 	onSave,
 	templateDraftItems,
 	templateDraftToken,
@@ -839,6 +994,18 @@ export default function QueueEditor({
 				else delete day.warmup;
 			}
 		});
+	const daySensors = useSensors(
+		useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+		useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+	);
+	const reorderDays = ({ active, over }: DragEndEvent) => {
+		if (!over || active.id === over.id) return;
+		update((s) => {
+			const from = s.days.findIndex((day) => day.id === active.id);
+			const to = s.days.findIndex((day) => day.id === over.id);
+			if (from >= 0 && to >= 0) s.days = arrayMove(s.days, from, to);
+		});
+	};
 
 	return (
 		<div className="mb-28">
@@ -878,7 +1045,18 @@ export default function QueueEditor({
 				</nav>
 			)}
 			<div className="mt-4 space-y-2">
-				{tab === "plan" &&
+				{tab === "plan" && !editingDay && (
+					<DndContext sensors={daySensors} collisionDetection={closestCenter} onDragEnd={reorderDays}>
+						<SortableContext items={draft.days.map((day) => day.id)} strategy={verticalListSortingStrategy}>
+							<div className="space-y-2">
+								{draft.days.map((day, i) => (
+									<SortableDayCard key={day.id} day={day} weekday={WEEKDAYS[i % 7]} isToday={i === todayDayIndex} onOpen={() => setExpanded(day.id)} />
+								))}
+							</div>
+						</SortableContext>
+					</DndContext>
+				)}
+				{false && tab === "plan" &&
 					!editingDay &&
 					draft.days.map((day, i) => (
 						<button
@@ -972,6 +1150,18 @@ export default function QueueEditor({
 											? "Choose exercises"
 											: "Add exercises in the library first"
 									}
+									options={exerciseOptions}
+									value={editingDay.exerciseIds}
+									onChange={(ids) =>
+										update((s) => {
+											const day = s.days.find(
+												(day) => day.id === editingDay.id,
+											);
+											if (day) day.exerciseIds = ids;
+										})
+									}
+								/>
+								<ExerciseOrder
 									options={exerciseOptions}
 									value={editingDay.exerciseIds}
 									onChange={(ids) =>

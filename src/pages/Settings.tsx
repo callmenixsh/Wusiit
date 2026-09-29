@@ -1,10 +1,12 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
 	Bell,
 	ChevronDown,
 	CloudDownload,
 	Database,
 	Dumbbell,
+	FlaskConical,
+	Save,
 	Monitor,
 	Moon,
 	Sun,
@@ -13,11 +15,13 @@ import {
 import { ReminderSettings } from "../lib/storage";
 import { NotificationStatus } from "../lib/notifications";
 import Modal from "../components/Modal";
+import type { SavedPlan } from "../App";
 
-type TemplateId = "home";
+type TemplateId = "ppl" | "home" | "beginner";
 type Section = "workout" | "notifications" | "data" | "danger";
 type SettingsProps = {
 	onOpenTemplates: () => void;
+	onOpenSavedPlans: () => void;
 	onExportPlan: () => void;
 	onImportPlan: () => void;
 	onExportBackup: () => void;
@@ -27,6 +31,12 @@ type SettingsProps = {
 	isTemplateModalOpen: boolean;
 	onCloseTemplateModal: () => void;
 	onUseTemplate: (templateId: TemplateId) => void;
+	isSavedPlansModalOpen: boolean;
+	onCloseSavedPlansModal: () => void;
+	savedPlans: (SavedPlan | null)[];
+	onSavePlanSlot: (index: number, name: string) => void;
+	onUseSavedPlan: (index: number) => void;
+	onDeleteSavedPlan: (index: number) => void;
 	themePref: "system" | "light" | "dark";
 	onCycleTheme: () => void;
 	weightTrackingEnabled: boolean;
@@ -49,6 +59,7 @@ const selectClass =
 export default function Settings(p: SettingsProps) {
 	const {
 		onOpenTemplates,
+		onOpenSavedPlans,
 		onExportPlan,
 		onImportPlan,
 		onExportBackup,
@@ -58,6 +69,12 @@ export default function Settings(p: SettingsProps) {
 		isTemplateModalOpen,
 		onCloseTemplateModal,
 		onUseTemplate,
+		isSavedPlansModalOpen,
+		onCloseSavedPlansModal,
+		savedPlans,
+		onSavePlanSlot,
+		onUseSavedPlan,
+		onDeleteSavedPlan,
 		themePref,
 		onCycleTheme,
 		weightTrackingEnabled,
@@ -75,6 +92,14 @@ export default function Settings(p: SettingsProps) {
 		onInstall,
 	} = p;
 	const [open, setOpen] = useState<Section | null>("workout");
+	const [planNames, setPlanNames] = useState<string[]>(() =>
+		Array.from({ length: 5 }, (_, index) => savedPlans[index]?.name || `Plan ${index + 1}`),
+	);
+	const [confirmDelete, setConfirmDelete] = useState<number | null>(null);
+	useEffect(() => {
+		if (isSavedPlansModalOpen)
+			setPlanNames(Array.from({ length: 5 }, (_, index) => savedPlans[index]?.name || `Plan ${index + 1}`));
+	}, [isSavedPlansModalOpen, savedPlans]);
 	const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 	const update = (next: Partial<ReminderSettings>) =>
 		onRemindersChange({ ...reminders, ...next, enabled: true });
@@ -91,6 +116,14 @@ export default function Settings(p: SettingsProps) {
 				]
 					.filter(Boolean)
 					.join(", ") || "No reminders";
+	const savedPlanSlots = savedPlans.flatMap((plan, index) =>
+		plan ? [index] : [],
+	);
+	const firstEmptyPlanSlot = savedPlans.findIndex((plan) => !plan);
+	const visiblePlanSlots =
+		firstEmptyPlanSlot >= 0
+			? [...savedPlanSlots, firstEmptyPlanSlot]
+			: savedPlanSlots;
 	return (
 		<>
 			<div className="space-y-3 pb-3">
@@ -192,6 +225,13 @@ export default function Settings(p: SettingsProps) {
 							onClick={onOpenTemplates}
 						>
 							Browse workout templates
+						</button>
+						<button
+							className="mt-2 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-black/15 text-sm font-semibold dark:border-white/20"
+							onClick={onOpenSavedPlans}
+						>
+							<FlaskConical size={16} />
+							My workout plans
 						</button>
 					</SettingsSection>
 					<SettingsSection
@@ -429,9 +469,19 @@ export default function Settings(p: SettingsProps) {
 					{(
 						[
 							[
+								"ppl",
+								"Classic Push–Pull–Legs",
+								"5 training days · barbell + cable · 7-day cycle",
+							],
+							[
 								"home",
-								"Bodyweight Home Workout",
+								"At-Home Bodyweight Split",
 								"5 training days · 100% bodyweight · no equipment",
+							],
+							[
+								"beginner",
+								"Beginner Strength & Walking",
+								"Gentle 7-day cycle · walking + strength · Week 1",
 							],
 						] as [TemplateId, string, string][]
 					).map(([id, name, detail]) => (
@@ -451,6 +501,46 @@ export default function Settings(p: SettingsProps) {
 							</span>
 						</button>
 					))}
+				</div>
+			</Modal>
+			<Modal
+				open={isSavedPlansModalOpen}
+				title="My workout plans"
+				onClose={() => { setConfirmDelete(null); onCloseSavedPlansModal(); }}
+			>
+				<div className="max-h-[62vh] space-y-2 overflow-y-auto pr-1">
+					{visiblePlanSlots.map((index) => {
+						const saved = savedPlans[index];
+						return (
+							<div key={index} className={`rounded-xl border transition-colors ${saved ? "border-black/10 p-3 dark:border-white/15" : "border-dashed border-black/20 dark:border-white/25"}`}>
+								{!saved ? (
+									<button onClick={() => onSavePlanSlot(index, `Plan ${index + 1}`)} className="flex min-h-16 w-full items-center justify-center gap-2 rounded-xl text-sm font-semibold text-black/45 hover:bg-black/[.025] hover:text-black dark:text-white/45 dark:hover:bg-white/[.04] dark:hover:text-white">
+										<Save size={15} /> Click to save
+									</button>
+								) : (
+								<>
+								<div className="flex items-center gap-2">
+									<input
+										aria-label={`Plan ${index + 1} name`}
+										maxLength={40}
+										value={planNames[index] || ""}
+										onChange={(event) => setPlanNames((names) => names.map((name, i) => i === index ? event.target.value : name))}
+										className="min-w-0 flex-1 border-0 border-b border-transparent bg-transparent px-1 py-2 text-sm font-semibold outline-none hover:border-black/10 focus:border-black/35 dark:hover:border-white/10 dark:focus:border-white/35"
+									/>
+									<span className="shrink-0 text-[10px] text-black/35 dark:text-white/35">
+										Updated {new Date(saved.updatedAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+									</span>
+								</div>
+								<div className="mt-2 flex gap-1.5">
+									<button onClick={() => onUseSavedPlan(index)} className="min-h-8 flex-1 rounded-lg bg-black text-xs font-semibold text-white dark:bg-white dark:text-black">Load</button>
+									<button onClick={() => onSavePlanSlot(index, planNames[index])} className="min-h-8 rounded-lg px-3 text-xs font-semibold hover:bg-black/5 dark:hover:bg-white/10">Update</button>
+									{saved && (confirmDelete === index ? <div className="flex gap-1"><button onClick={() => setConfirmDelete(null)} className="min-h-9 px-2 text-xs text-black/45 dark:text-white/45">Cancel</button><button onClick={() => { onDeleteSavedPlan(index); setConfirmDelete(null); }} className="min-h-9 rounded-lg bg-red-700 px-3 text-xs font-semibold text-white">Delete</button></div> : <button aria-label={`Delete ${saved.name}`} onClick={() => setConfirmDelete(index)} className="min-h-9 rounded-lg px-2.5 text-black/35 hover:bg-red-50 hover:text-red-700 dark:text-white/35 dark:hover:bg-red-950/30 dark:hover:text-red-300"><Trash2 size={14} /></button>)}
+								</div>
+								</>
+								)}
+							</div>
+						);
+					})}
 				</div>
 			</Modal>
 		</>
