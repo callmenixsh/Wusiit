@@ -26,7 +26,7 @@ import {
 	Plus,
 	Trash2,
 } from "lucide-react";
-import { AppState, makeId, STANDARD_MUSCLE_GROUPS } from "../lib/storage";
+import { AppState, makeId, STANDARD_MUSCLE_GROUPS, WorkoutPlan } from "../lib/storage";
 import {
 	recommendedWarmupAreas,
 	warmupStepsFor,
@@ -42,6 +42,7 @@ type Props = {
 	templateDraftItems?:
 		| { name: string; description?: string; warmup?: WarmupStep[] }[]
 		| null;
+	templateDraftPlan?: WorkoutPlan | null;
 	templateDraftToken?: number;
 	onTemplateDraftApplied?: () => void;
 };
@@ -785,6 +786,7 @@ export default function QueueEditor({
 	todayDayIndex,
 	onSave,
 	templateDraftItems,
+	templateDraftPlan,
 	templateDraftToken,
 	onTemplateDraftApplied,
 }: Props) {
@@ -794,6 +796,13 @@ export default function QueueEditor({
 	const [validationMessage, setValidationMessage] = useState("");
 	useEffect(() => setDraft(asWeek(state)), [state]);
 	useEffect(() => {
+		if (templateDraftPlan) {
+			setDraft(asWeek({ ...clone(state), ...JSON.parse(JSON.stringify(templateDraftPlan)) }));
+			setTab("plan");
+			setExpanded(null);
+			onTemplateDraftApplied?.();
+			return;
+		}
 		if (!templateDraftItems?.length) return;
 		const next: AppState = {
 			exercises: [],

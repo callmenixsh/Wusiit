@@ -179,19 +179,22 @@ function normalize(value:unknown):AppState{
 
 export function loadState():AppState{try{const raw=localStorage.getItem(KEY)||localStorage.getItem(LEGACY_KEY);return raw?normalize(JSON.parse(raw)):defaultState()}catch(e){console.error(e);return defaultState()}}
 export const saveState=(state:AppState)=>localStorage.setItem(KEY,JSON.stringify(normalize(state)))
-export const exportJSON=(state:AppState)=>JSON.stringify(normalize(state),null,2)
-export function importJSON(json:string):AppState|null{try{return normalize(JSON.parse(json))}catch{return null}}
+const readableJSON=(value:unknown)=>`${JSON.stringify(value,null,2)}\n`
+const withoutBOM=(json:string)=>json.replace(/^\uFEFF/,'')
+
+export const exportJSON=(state:AppState)=>readableJSON(normalize(state))
+export function importJSON(json:string):AppState|null{try{return normalize(JSON.parse(withoutBOM(json)))}catch{return null}}
 
 /** A portable program file. Progress, preferences, and reminders are intentionally excluded. */
 export function exportPlanJSON(state:AppState){
   const normalized=normalize(state)
   const file:WorkoutPlanFile={format:'wuwiit-workout-plan',version:1,plan:{exercises:normalized.exercises,muscleGroups:normalized.muscleGroups,days:normalized.days}}
-  return JSON.stringify(file,null,2)
+  return readableJSON(file)
 }
 
 export function importPlanJSON(json:string):WorkoutPlan|null{
   try{
-    const value:unknown=JSON.parse(json)
+    const value:unknown=JSON.parse(withoutBOM(json))
     if(!value||typeof value!=='object')return null
     const file=value as Record<string,unknown>
     if(file.format!=='wuwiit-workout-plan'||file.version!==1||!file.plan||typeof file.plan!=='object')return null

@@ -1,0 +1,654 @@
+{
+	"templates": [
+		{
+			"id": "home",
+			"name": "Home Bodyweight Workout",
+			"detail": "5 training days · 100% bodyweight",
+			"plan": {
+				"exercises": [
+					{
+						"id": "ex-mumz57zp-cf4e6f",
+						"name": "Push-Up",
+						"tracking": "reps",
+						"muscleGroupIds": [
+							"group-chest",
+							"group-shoulders",
+							"group-triceps"
+						],
+						"instructions": "Place your hands slightly wider than shoulder-width and make a straight line from head to heels. Brace your abs and glutes, lower your chest under control with elbows about 30–60 degrees from your body, then push the floor away.",
+						"commonMistakes": "Avoid sagging or raised hips, flared elbows, half reps, or reaching your head toward the floor before your chest.",
+						"sets": 3,
+						"reps": "8–15"
+					},
+					{
+						"id": "ex-mumz57zp-0mq8zm",
+						"name": "Pike Push-Up",
+						"tracking": "reps",
+						"muscleGroupIds": ["group-shoulders", "group-triceps"],
+						"instructions": "Start with hands about shoulder-width apart and hips high in an inverted-V. Bend your elbows to lower the crown of your head slightly in front of your hands, then press back up.",
+						"commonMistakes": "Do not turn it into a normal push-up, let your hips collapse, or crash your head into the floor.",
+						"sets": 3,
+						"reps": "6–12"
+					},
+					{
+						"id": "ex-mumz57zp-a0kkx2",
+						"name": "Close-Grip Push-Up",
+						"tracking": "reps",
+						"muscleGroupIds": [
+							"group-chest",
+							"group-triceps",
+							"group-shoulders"
+						],
+						"instructions": "Place your hands just inside shoulder-width. Keep your elbows relatively close to your ribs as you lower your chest, then press the floor away.",
+						"commonMistakes": "Avoid an extremely narrow hand position, flared elbows, sagging hips, or shortened range of motion.",
+						"sets": 2,
+						"reps": "8–15"
+					},
+					{
+						"id": "ex-mumz57zp-dazen5",
+						"name": "Decline Push-Up",
+						"tracking": "reps",
+						"muscleGroupIds": [
+							"group-chest",
+							"group-shoulders",
+							"group-triceps"
+						],
+						"instructions": "Place your feet on a stable chair and your hands on the floor. Brace your body, lower your chest under control, then press back up.",
+						"commonMistakes": "Use only a stable chair. Avoid sagging hips, excessive shoulder discomfort, or cutting the range short.",
+						"sets": 2,
+						"reps": "6–12"
+					},
+					{
+						"id": "ex-mumz57zp-c82po3",
+						"name": "Chair Dip",
+						"tracking": "reps",
+						"muscleGroupIds": [
+							"group-triceps",
+							"group-shoulders",
+							"group-chest"
+						],
+						"instructions": "Use a heavy, stable chair that cannot slide. Place your hands on the edge, keep your shoulders down, bend your elbows to lower your body a comfortable distance, then press back up.",
+						"commonMistakes": "Do not use an unstable chair, drop too deep, shrug your shoulders, or force a painful range of motion.",
+						"sets": 2,
+						"reps": "8–15"
+					},
+					{
+						"id": "ex-mumz57zp-ec4oph",
+						"name": "Prone Elbow Row",
+						"tracking": "reps",
+						"muscleGroupIds": ["group-back", "group-biceps"],
+						"instructions": "Lie face down with your arms extended overhead. Pull your elbows toward your ribs while squeezing your shoulder blades, then slowly reach forward again.",
+						"commonMistakes": "Do not yank the elbows, shrug, lift your chest excessively, or use momentum.",
+						"sets": 3,
+						"reps": "10–15"
+					},
+					{
+						"id": "ex-mumz57zp-0wo9q3",
+						"name": "Reverse Snow Angel",
+						"tracking": "reps",
+						"muscleGroupIds": ["group-back", "group-shoulders"],
+						"instructions": "Lie face down with your hands near your hips. Lift your hands slightly and sweep your arms in a controlled arc overhead, then return slowly.",
+						"commonMistakes": "Avoid shrugging, bending the elbows excessively, lifting your head, or swinging your arms.",
+						"sets": 3,
+						"reps": "10–15"
+					},
+					{
+						"id": "ex-mumz57zp-yjtgfe",
+						"name": "Superman Pull-Down",
+						"tracking": "reps",
+						"muscleGroupIds": ["group-back", "group-lower-back"],
+						"instructions": "Lie face down with arms extended overhead. Lift your hands slightly, pull your elbows toward your ribs while squeezing your upper back, then reach forward before lowering.",
+						"commonMistakes": "Keep your neck neutral and use a controlled range. Do not crank your lower back into a deep arch.",
+						"sets": 3,
+						"reps": "10–15"
+					},
+					{
+						"id": "ex-mumz57zp-199qd0",
+						"name": "Prone Y-T-W",
+						"tracking": "reps",
+						"muscleGroupIds": ["group-back", "group-shoulders"],
+						"instructions": "Lie face down and raise your arms into a Y, then T, then W. Pause briefly in each position and squeeze your shoulder blades.",
+						"commonMistakes": "Use small controlled movements; avoid shrugging, throwing your arms upward, or arching your lower back.",
+						"sets": 2,
+						"reps": "6–10 each position"
+					},
+					{
+						"id": "ex-mumz57zp-200wjh",
+						"name": "Bodyweight Squat",
+						"tracking": "reps",
+						"muscleGroupIds": ["group-quads", "group-glutes"],
+						"instructions": "Stand about shoulder-width apart. Sit your hips back and down while bending your knees, then drive through your whole foot to stand tall.",
+						"commonMistakes": "Avoid knees collapsing inward, heels lifting, excessive forward lean, or cutting the range short.",
+						"sets": 3,
+						"reps": "12–20"
+					},
+					{
+						"id": "ex-mumz57zp-1fcczq",
+						"name": "Bulgarian Split Squat",
+						"tracking": "reps",
+						"muscleGroupIds": [
+							"group-quads",
+							"group-glutes",
+							"group-hamstrings"
+						],
+						"instructions": "Place the top of one foot on a stable chair behind you. Lower under control with most of your weight on the front leg, then drive through that foot to stand.",
+						"commonMistakes": "Use a stable chair. Avoid bouncing, letting the front knee cave inward, or pushing mostly from the rear leg.",
+						"sets": 3,
+						"reps": "8–15 / leg"
+					},
+					{
+						"id": "ex-mumz57zp-s0c2sm",
+						"name": "Single-Leg Romanian Deadlift",
+						"tracking": "reps",
+						"muscleGroupIds": ["group-hamstrings", "group-glutes"],
+						"instructions": "Stand on one leg with a soft knee. Hinge at the hip while reaching the free leg behind you, keeping both hips facing the floor. Squeeze the glute to return.",
+						"commonMistakes": "Avoid rounding your back, rotating the pelvis, locking the standing knee, or reaching farther than your balance allows.",
+						"sets": 3,
+						"reps": "8–12 / leg"
+					},
+					{
+						"id": "ex-mumz57zp-goyc1r",
+						"name": "Single-Leg Glute Bridge",
+						"tracking": "reps",
+						"muscleGroupIds": ["group-glutes", "group-hamstrings"],
+						"instructions": "Keep your planted foot flat and your hips level. Drive through the planted foot to lift your hips, pause while squeezing the glute, then lower slowly.",
+						"commonMistakes": "Avoid rotating the pelvis or driving the movement through your lower back.",
+						"sets": 2,
+						"reps": "10–15 / side"
+					},
+					{
+						"id": "ex-mumz57zp-7gbyjg",
+						"name": "Single-Leg Calf Raise",
+						"tracking": "reps",
+						"muscleGroupIds": ["group-calves"],
+						"instructions": "Stand on one foot, rise as high as possible onto the ball of your foot, pause at the top, then lower slowly through a full range.",
+						"commonMistakes": "Avoid bouncing, rolling the ankle outward, bending the knee excessively, or pulling yourself up with your hands.",
+						"sets": 3,
+						"reps": "12–20 / leg"
+					},
+					{
+						"id": "ex-mumz57zp-bvpq8d",
+						"name": "Reverse Crunch",
+						"tracking": "reps",
+						"muscleGroupIds": ["group-core"],
+						"instructions": "Lie on your back with hips and knees bent. Press your lower back gently down, curl your pelvis toward your ribs until your hips lift slightly, then lower slowly.",
+						"commonMistakes": "Avoid kicking your legs, swinging, or turning the movement into a large hip swing.",
+						"sets": 3,
+						"reps": "10–15"
+					},
+					{
+						"id": "ex-mumz57zp-vj72d4",
+						"name": "Forearm Plank",
+						"tracking": "timed",
+						"muscleGroupIds": ["group-core", "group-lower-back"],
+						"instructions": "Place your elbows under your shoulders, extend your legs, squeeze your glutes, brace your abs, and breathe slowly while keeping a straight line.",
+						"commonMistakes": "End the set when your hips sag or rise. Do not hold your breath or crane your head upward.",
+						"sets": 2,
+						"reps": "30–60",
+						"durationSeconds": 45
+					},
+					{
+						"id": "ex-template-sideplank",
+						"name": "Side Plank",
+						"tracking": "timed",
+						"muscleGroupIds": ["group-core"],
+						"instructions": "Support yourself on one forearm with your body in a straight line. Brace your core and squeeze your glutes while keeping your hips elevated.",
+						"commonMistakes": "Do not rotate your torso toward the floor or let your hips drop.",
+						"sets": 2,
+						"reps": "20–45",
+						"durationSeconds": 30
+					},
+					{
+						"id": "ex-template-deadbug",
+						"name": "Dead Bug",
+						"tracking": "reps",
+						"muscleGroupIds": ["group-core"],
+						"instructions": "Lie on your back with hips and knees bent. Slowly extend the opposite arm and leg while keeping your lower back controlled against the floor, then return and switch sides.",
+						"commonMistakes": "Do not let your lower back arch away from the floor or rush the movement.",
+						"sets": 2,
+						"reps": "8–12 / side"
+					}
+				],
+				"muscleGroups": [
+					{
+						"id": "group-chest",
+						"name": "Chest",
+						"exerciseIds": [
+							"ex-mumz57zp-cf4e6f",
+							"ex-mumz57zp-a0kkx2",
+							"ex-mumz57zp-dazen5",
+							"ex-mumz57zp-c82po3"
+						]
+					},
+					{
+						"id": "group-back",
+						"name": "Back",
+						"exerciseIds": [
+							"ex-mumz57zp-ec4oph",
+							"ex-mumz57zp-0wo9q3",
+							"ex-mumz57zp-yjtgfe",
+							"ex-mumz57zp-199qd0"
+						]
+					},
+					{
+						"id": "group-shoulders",
+						"name": "Shoulders",
+						"exerciseIds": [
+							"ex-mumz57zp-cf4e6f",
+							"ex-mumz57zp-0mq8zm",
+							"ex-mumz57zp-a0kkx2",
+							"ex-mumz57zp-dazen5",
+							"ex-mumz57zp-c82po3",
+							"ex-mumz57zp-0wo9q3",
+							"ex-mumz57zp-199qd0"
+						]
+					},
+					{
+						"id": "group-biceps",
+						"name": "Biceps",
+						"exerciseIds": ["ex-mumz57zp-ec4oph"]
+					},
+					{
+						"id": "group-triceps",
+						"name": "Triceps",
+						"exerciseIds": [
+							"ex-mumz57zp-cf4e6f",
+							"ex-mumz57zp-0mq8zm",
+							"ex-mumz57zp-a0kkx2",
+							"ex-mumz57zp-dazen5",
+							"ex-mumz57zp-c82po3"
+						]
+					},
+					{
+						"id": "group-forearms",
+						"name": "Forearms",
+						"exerciseIds": []
+					},
+					{
+						"id": "group-core",
+						"name": "Abs",
+						"exerciseIds": [
+							"ex-mumz57zp-bvpq8d",
+							"ex-mumz57zp-vj72d4",
+							"ex-template-sideplank",
+							"ex-template-deadbug"
+						]
+					},
+					{
+						"id": "group-quads",
+						"name": "Quadriceps",
+						"exerciseIds": ["ex-mumz57zp-200wjh", "ex-mumz57zp-1fcczq"]
+					},
+					{
+						"id": "group-hamstrings",
+						"name": "Hamstrings",
+						"exerciseIds": [
+							"ex-mumz57zp-1fcczq",
+							"ex-mumz57zp-s0c2sm",
+							"ex-mumz57zp-goyc1r"
+						]
+					},
+					{
+						"id": "group-glutes",
+						"name": "Glutes",
+						"exerciseIds": [
+							"ex-mumz57zp-200wjh",
+							"ex-mumz57zp-1fcczq",
+							"ex-mumz57zp-s0c2sm",
+							"ex-mumz57zp-goyc1r"
+						]
+					},
+					{
+						"id": "group-calves",
+						"name": "Calves",
+						"exerciseIds": ["ex-mumz57zp-7gbyjg"]
+					},
+					{
+						"id": "group-lower-back",
+						"name": "Lower Back",
+						"exerciseIds": ["ex-mumz57zp-yjtgfe", "ex-mumz57zp-vj72d4"]
+					},
+					{
+						"id": "group-traps",
+						"name": "Traps",
+						"exerciseIds": []
+					},
+					{
+						"id": "group-full-body",
+						"name": "Full Body",
+						"exerciseIds": []
+					}
+				],
+				"days": [
+					{
+						"id": "day-mumz57zp-9s1skw",
+						"name": "Upper Body",
+						"exerciseIds": [
+							"ex-mumz57zp-cf4e6f",
+							"ex-mumz57zp-0mq8zm",
+							"ex-mumz57zp-ec4oph",
+							"ex-mumz57zp-0wo9q3",
+							"ex-mumz57zp-a0kkx2",
+							"ex-mumz57zp-199qd0"
+						],
+						"warmup": [
+							{
+								"name": "Arm circles",
+								"amount": "10 each way",
+								"detail": "Make controlled circles and gradually increase the range."
+							},
+							{
+								"name": "Scapular push-ups",
+								"amount": "10 reps",
+								"detail": "Keep your elbows straight and move your chest away from and toward the floor using your shoulder blades."
+							},
+							{
+								"name": "Easy push-ups",
+								"amount": "5 reps",
+								"detail": "Use slow, easy reps to rehearse your pressing position without fatigue."
+							}
+						]
+					},
+					{
+						"id": "day-mumz57zp-668cok",
+						"name": "Lower Body + Core",
+						"exerciseIds": [
+							"ex-mumz57zp-1fcczq",
+							"ex-mumz57zp-200wjh",
+							"ex-mumz57zp-s0c2sm",
+							"ex-mumz57zp-7gbyjg",
+							"ex-mumz57zp-bvpq8d",
+							"ex-mumz57zp-vj72d4"
+						],
+						"warmup": [
+							{
+								"name": "Bodyweight squats",
+								"amount": "10 reps",
+								"detail": "Use controlled rehearsal reps through a comfortable range."
+							},
+							{
+								"name": "Reverse lunges",
+								"amount": "6 each leg",
+								"detail": "Move slowly and keep these easy; they are preparation, not a hard set."
+							},
+							{
+								"name": "Glute bridges",
+								"amount": "10 reps",
+								"detail": "Pause briefly at the top and squeeze the glutes."
+							}
+						]
+					},
+					{
+						"id": "day-mumz57zp-fy0ugp",
+						"name": "Push",
+						"exerciseIds": [
+							"ex-mumz57zp-dazen5",
+							"ex-mumz57zp-0mq8zm",
+							"ex-mumz57zp-cf4e6f",
+							"ex-mumz57zp-c82po3",
+							"ex-mumz57zp-a0kkx2"
+						],
+						"warmup": [
+							{
+								"name": "Arm circles",
+								"amount": "10 each way",
+								"detail": "Make controlled circles and gradually increase the range."
+							},
+							{
+								"name": "Scapular push-ups",
+								"amount": "10 reps",
+								"detail": "Keep your elbows straight and move your chest away from and toward the floor using your shoulder blades."
+							},
+							{
+								"name": "Easy push-ups",
+								"amount": "5 reps",
+								"detail": "Use slow, easy reps to rehearse your pressing position without fatigue."
+							}
+						]
+					},
+					{
+						"id": "day-mumz57zp-cu6ews",
+						"name": "Pull + Core",
+						"exerciseIds": [
+							"ex-mumz57zp-yjtgfe",
+							"ex-mumz57zp-ec4oph",
+							"ex-mumz57zp-0wo9q3",
+							"ex-mumz57zp-199qd0",
+							"ex-template-deadbug",
+							"ex-template-sideplank"
+						],
+						"warmup": [
+							{
+								"name": "Arm circles",
+								"amount": "10 each way",
+								"detail": "Make controlled circles and gradually increase the range."
+							},
+							{
+								"name": "Scapular push-ups",
+								"amount": "10 reps",
+								"detail": "Keep your elbows straight and move your chest away from and toward the floor using your shoulder blades."
+							},
+							{
+								"name": "Easy push-ups",
+								"amount": "5 reps",
+								"detail": "Use slow, easy reps to rehearse your pressing position without fatigue."
+							}
+						]
+					},
+					{
+						"id": "day-mumz57zp-p2ntx3",
+						"name": "Full Body",
+						"exerciseIds": [
+							"ex-mumz57zp-200wjh",
+							"ex-mumz57zp-cf4e6f",
+							"ex-mumz57zp-1fcczq",
+							"ex-mumz57zp-yjtgfe",
+							"ex-mumz57zp-goyc1r",
+							"ex-mumz57zp-bvpq8d"
+						],
+						"warmup": [
+							{
+								"name": "Bodyweight squats",
+								"amount": "10 reps",
+								"detail": "Use controlled rehearsal reps through a comfortable range."
+							},
+							{
+								"name": "Reverse lunges",
+								"amount": "6 each leg",
+								"detail": "Move slowly and keep these easy; they are preparation, not a hard set."
+							},
+							{
+								"name": "Glute bridges",
+								"amount": "10 reps",
+								"detail": "Pause briefly at the top and squeeze the glutes."
+							}
+						]
+					},
+					{
+						"id": "day-mumz57zp-fs1ps9",
+						"name": "Rest + Mobility",
+						"exerciseIds": [],
+						"isRestDay": true
+					},
+					{
+						"id": "day-mumz57zp-vu4pz7",
+						"name": "Full Rest",
+						"exerciseIds": [],
+						"isRestDay": true
+					}
+				]
+			}
+		},
+		{
+			"id": "ppl",
+			"name": "Push–Pull–Legs",
+			"detail": "5 training days · barbell + cable · 7-day cycle",
+			"days": [
+				{
+					"name": "Push day",
+					"description": "Bench press\nOverhead press",
+					"warmupAreas": ["Upper body"]
+				},
+				{
+					"name": "Pull day",
+					"description": "Barbell row\nLat pulldown",
+					"warmupAreas": ["Upper body"]
+				},
+				{
+					"name": "Leg day",
+					"description": "Squat\nRomanian deadlift",
+					"warmupAreas": ["Lower body"]
+				},
+				{
+					"name": "Recovery",
+					"description": "__REST__"
+				},
+				{
+					"name": "Push day",
+					"description": "Bench press\nOverhead press",
+					"warmupAreas": ["Upper body"]
+				},
+				{
+					"name": "Pull day",
+					"description": "Barbell row\nLat pulldown",
+					"warmupAreas": ["Upper body"]
+				},
+				{
+					"name": "Rest day",
+					"description": "__REST__"
+				}
+			]
+		},
+		{
+			"id": "beginner",
+			"name": "Beginner Strength Building",
+			"detail": "Gentle 7-day cycle · walking + strength · Week 1",
+			"days": [
+				{
+					"name": "Full Body A",
+					"description": "Chair-assisted squat\nWall push-up\nBeginner glute bridge\nStanding alternating knee raise\nBeginner calf raise\nBird dog",
+					"warmupSteps": [
+						{
+							"name": "March in place",
+							"amount": "1 min",
+							"detail": "March at an easy pace and breathe normally."
+						},
+						{
+							"name": "Shoulder rolls",
+							"amount": "30 sec",
+							"detail": "Roll the shoulders slowly through a comfortable range."
+						},
+						{
+							"name": "Arm circles",
+							"amount": "30 sec",
+							"detail": "Make small, controlled circles without shrugging."
+						},
+						{
+							"name": "Hip circles",
+							"amount": "30 sec",
+							"detail": "Move gently and keep the circles comfortable."
+						},
+						{
+							"name": "Gentle bodyweight squats",
+							"amount": "1 min",
+							"detail": "Use a shallow, comfortable range and move slowly."
+						},
+						{
+							"name": "Slow marching",
+							"amount": "1 min",
+							"detail": "Finish at an easy pace before starting the workout."
+						}
+					]
+				},
+				{
+					"name": "Walking / Low-Impact Cardio",
+					"description": "Easy walk or indoor march"
+				},
+				{
+					"name": "Full Body B",
+					"description": "Sit-to-stand\nWall push-up\nBeginner glute bridge\nSupported reverse leg raise\nBeginner wall sit\nBeginner dead bug",
+					"warmupSteps": [
+						{
+							"name": "March in place",
+							"amount": "1 min",
+							"detail": "March at an easy pace and breathe normally."
+						},
+						{
+							"name": "Shoulder rolls",
+							"amount": "30 sec",
+							"detail": "Roll the shoulders slowly through a comfortable range."
+						},
+						{
+							"name": "Arm circles",
+							"amount": "30 sec",
+							"detail": "Make small, controlled circles without shrugging."
+						},
+						{
+							"name": "Hip circles",
+							"amount": "30 sec",
+							"detail": "Move gently and keep the circles comfortable."
+						},
+						{
+							"name": "Gentle bodyweight squats",
+							"amount": "1 min",
+							"detail": "Use a shallow, comfortable range and move slowly."
+						},
+						{
+							"name": "Slow marching",
+							"amount": "1 min",
+							"detail": "Finish at an easy pace before starting the workout."
+						}
+					]
+				},
+				{
+					"name": "Recovery + Mobility",
+					"description": "Leisurely walk\nGentle mobility flow"
+				},
+				{
+					"name": "Full Body A",
+					"description": "Chair-assisted squat\nWall push-up\nBeginner glute bridge\nStanding alternating knee raise\nBeginner calf raise\nBird dog",
+					"warmupSteps": [
+						{
+							"name": "March in place",
+							"amount": "1 min",
+							"detail": "March at an easy pace and breathe normally."
+						},
+						{
+							"name": "Shoulder rolls",
+							"amount": "30 sec",
+							"detail": "Roll the shoulders slowly through a comfortable range."
+						},
+						{
+							"name": "Arm circles",
+							"amount": "30 sec",
+							"detail": "Make small, controlled circles without shrugging."
+						},
+						{
+							"name": "Hip circles",
+							"amount": "30 sec",
+							"detail": "Move gently and keep the circles comfortable."
+						},
+						{
+							"name": "Gentle bodyweight squats",
+							"amount": "1 min",
+							"detail": "Use a shallow, comfortable range and move slowly."
+						},
+						{
+							"name": "Slow marching",
+							"amount": "1 min",
+							"detail": "Finish at an easy pace before starting the workout."
+						}
+					]
+				},
+				{
+					"name": "Walking / Low-Impact Cardio",
+					"description": "Easy walk or indoor march"
+				},
+				{
+					"name": "Rest",
+					"description": "__REST__"
+				}
+			]
+		}
+	]
+}

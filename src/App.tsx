@@ -48,6 +48,7 @@ import Modal, {
 	secondaryButton,
 } from "./components/Modal";
 import Toast from "./components/Toast";
+import workoutTemplates from "./data/workoutTemplates.json";
 
 const THEME_KEY = "wusiit.theme";
 const LAST_WORKOUT_DATE_KEY = "wusiit.lastWorkoutDate";
@@ -149,6 +150,7 @@ export default function App() {
 	const [templateDraftItems, setTemplateDraftItems] = useState<
 		{ name: string; description?: string; warmup?: WarmupStep[] }[] | null
 	>(null);
+	const [templateDraftPlan, setTemplateDraftPlan] = useState<WorkoutPlan | null>(null);
 	const [templateDraftToken, setTemplateDraftToken] = useState(0);
 	const [confirmation, setConfirmation] = useState<Confirmation | null>(null);
 	const [importOpen, setImportOpen] = useState(false);
@@ -655,90 +657,42 @@ export default function App() {
 	}
 
 	function handleUseTemplate(templateId: "ppl" | "home" | "beginner") {
-		let preset: {
-			name: string;
-			description?: string;
-			warmup?: WarmupStep[];
-		}[] = [];
-		if (templateId === "ppl") {
-			const upper = () => warmupStepsFor(["Upper body"]);
-			const lower = () => warmupStepsFor(["Lower body"]);
-			preset = [
-				{ name: "Push day", description: "Bench press\nOverhead press", warmup: upper() },
-				{ name: "Pull day", description: "Barbell row\nLat pulldown", warmup: upper() },
-				{ name: "Leg day", description: "Squat\nRomanian deadlift", warmup: lower() },
-				{ name: "Recovery", description: "__REST__" },
-				{ name: "Push day", description: "Bench press\nOverhead press", warmup: upper() },
-				{ name: "Pull day", description: "Barbell row\nLat pulldown", warmup: upper() },
-				{ name: "Rest day", description: "__REST__" },
-			];
+		const template = workoutTemplates.templates.find(({ id }) => id === templateId);
+		if (!template) return;
+		const configured = template as typeof template & {
+			plan?: WorkoutPlan;
+			days?: {
+				name: string;
+				description?: string;
+				warmupAreas?: string[];
+				warmupSteps?: WarmupStep[];
+			}[];
+		};
+		if (configured.plan) {
+			setTemplateDraftPlan(configured.plan);
+			setTemplateDraftItems(null);
+		} else {
+			const preset = (configured.days || []).map((day) => {
+				const warmup = day.warmupSteps?.map((step) => ({ ...step })) ||
+					(day.warmupAreas ? warmupStepsFor(day.warmupAreas) : []);
+				return {
+					name: day.name,
+					description: day.description,
+					...(warmup.length ? { warmup } : {}),
+				};
+			});
+			setTemplateDraftPlan(null);
+			setTemplateDraftItems(preset);
 		}
-		if (templateId === "home") {
-			const upper = () => warmupStepsFor(["Upper body"]);
-			const lower = () => warmupStepsFor(["Lower body", "Core"]);
-			preset = [
-				{
-					name: "Chest, Shoulders + Triceps",
-					description:
-						"Push-Up\nWide Push-Up\nPike Push-Up\nClose-Grip Push-Up\nPush-up drop set",
-					warmup: upper(),
-				},
-				{
-					name: "Back + Biceps",
-					description:
-						"Superman Pull-Down\nReverse Snow Angel\nProne Y-T-W\nSelf-Resisted Biceps Curl\nSuperman",
-					warmup: upper(),
-				},
-				{
-					name: "Leg Strength",
-					description:
-						"Bodyweight squat\nReverse Lunge\nSingle-Leg Romanian Deadlift\nSingle-leg glute bridge\nSingle-Leg Calf Raise",
-					warmup: lower(),
-				},
-				{ name: "Rest + Mobility", description: "__REST__" },
-				{
-					name: "Upper Body Essentials",
-					description:
-						"Push-Up\nPike Push-Up\nSuperman Pull-Down\nReverse Snow Angel\nClose-Grip Push-Up\nSelf-Resisted Biceps Curl",
-					warmup: upper(),
-				},
-				{
-					name: "Lower Body + Core",
-					description:
-						"Bodyweight squat\nReverse Lunge\nSingle-leg glute bridge\nSingle-Leg Calf Raise\nReverse Crunch\nForearm Plank",
-					warmup: lower(),
-				},
-				{ name: "Full Rest", description: "__REST__" },
-			];
-		}
-		if (templateId === "beginner") {
-			const gentleWarmup = (): WarmupStep[] => [
-				{name: "March in place", amount: "1 min", detail: "March at an easy pace and breathe normally."},
-				{name: "Shoulder rolls", amount: "30 sec", detail: "Roll the shoulders slowly through a comfortable range."},
-				{name: "Arm circles", amount: "30 sec", detail: "Make small, controlled circles without shrugging."},
-				{name: "Hip circles", amount: "30 sec", detail: "Move gently and keep the circles comfortable."},
-				{name: "Gentle bodyweight squats", amount: "1 min", detail: "Use a shallow, comfortable range and move slowly."},
-				{name: "Slow marching", amount: "1 min", detail: "Finish at an easy pace before starting the workout."},
-			];
-			preset = [
-				{name: "Full Body A", description: "Chair-assisted squat\nWall push-up\nBeginner glute bridge\nStanding alternating knee raise\nBeginner calf raise\nBird dog", warmup: gentleWarmup()},
-				{name: "Walking / Low-Impact Cardio", description: "Easy walk or indoor march"},
-				{name: "Full Body B", description: "Sit-to-stand\nWall push-up\nBeginner glute bridge\nSupported reverse leg raise\nBeginner wall sit\nBeginner dead bug", warmup: gentleWarmup()},
-				{name: "Recovery + Mobility", description: "Leisurely walk\nGentle mobility flow"},
-				{name: "Full Body A", description: "Chair-assisted squat\nWall push-up\nBeginner glute bridge\nStanding alternating knee raise\nBeginner calf raise\nBird dog", warmup: gentleWarmup()},
-				{name: "Walking / Low-Impact Cardio", description: "Easy walk or indoor march"},
-				{name: "Rest", description: "__REST__"},
-			];
-		}
-		setTemplateDraftItems(preset);
 		setTemplateDraftToken((prev) => prev + 1);
 		setView("edit");
 		setIsTemplateModalOpen(false);
 	}
-
 	function handleExportPlan() {
 		const data = exportPlanJSON(state);
-		const blob = new Blob([data], { type: "application/json" });
+		const blob = new Blob(["\uFEFF", data], {
+			type: "application/json;charset=utf-8",
+		});
 		const url = URL.createObjectURL(blob);
 		const a = document.createElement("a");
 		a.href = url;
@@ -749,7 +703,9 @@ export default function App() {
 
 	function handleExportBackup() {
 		const data = exportJSON(state);
-		const blob = new Blob([data], { type: "application/json" });
+		const blob = new Blob(["\uFEFF", data], {
+			type: "application/json;charset=utf-8",
+		});
 		const url = URL.createObjectURL(blob);
 		const a = document.createElement("a");
 		a.href = url;
@@ -1076,8 +1032,9 @@ export default function App() {
 							todayDayIndex={todayDayIndex}
 							onSave={handleSaveProgram}
 							templateDraftItems={templateDraftItems}
+							templateDraftPlan={templateDraftPlan}
 							templateDraftToken={templateDraftToken}
-							onTemplateDraftApplied={() => setTemplateDraftItems(null)}
+							onTemplateDraftApplied={() => { setTemplateDraftItems(null); setTemplateDraftPlan(null); }}
 						/>
 					)}
 					{view === "history" && (

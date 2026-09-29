@@ -16,6 +16,7 @@ import { ReminderSettings } from "../lib/storage";
 import { NotificationStatus } from "../lib/notifications";
 import Modal from "../components/Modal";
 import type { SavedPlan } from "../App";
+import workoutTemplates from "../data/workoutTemplates.json";
 
 type TemplateId = "ppl" | "home" | "beginner";
 type Section = "workout" | "notifications" | "data" | "danger";
@@ -466,29 +467,11 @@ export default function Settings(p: SettingsProps) {
 				onClose={onCloseTemplateModal}
 			>
 				<div className="space-y-2">
-					{(
-						[
-							[
-								"ppl",
-								"Classic Push–Pull–Legs",
-								"5 training days · barbell + cable · 7-day cycle",
-							],
-							[
-								"home",
-								"At-Home Bodyweight Split",
-								"5 training days · 100% bodyweight · no equipment",
-							],
-							[
-								"beginner",
-								"Beginner Strength & Walking",
-								"Gentle 7-day cycle · walking + strength · Week 1",
-							],
-						] as [TemplateId, string, string][]
-					).map(([id, name, detail]) => (
+					{workoutTemplates.templates.map(({ id, name, detail }) => (
 						<button
 							key={id}
 							className="flex w-full items-center gap-3 rounded-xl border border-black/10 p-3 text-left hover:border-black/30 dark:border-white/15 dark:hover:border-white/35"
-							onClick={() => onUseTemplate(id)}
+							onClick={() => onUseTemplate(id as TemplateId)}
 						>
 							<span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-black text-white dark:bg-white dark:text-black">
 								<Dumbbell size={17} />
